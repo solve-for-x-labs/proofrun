@@ -90,6 +90,19 @@ runtime viewer. It shows actual browser pixels first; text is only the decision 
 the captured screen. No screenshot is presented as live evidence unless it was captured during
 the current run.
 
+## 관리자용 실제 이미지·영상 보고서
+
+```bash
+proofrun journey schemas/journey-spec.example.json --repo . --out evidence/contact-form
+proofrun verify evidence/contact-form/evidence.json --repo .
+open evidence/contact-form/admin.html
+```
+
+`admin.html`은 실제 단계별 PNG와 실행 WebM을 중심으로 표시하고, 실패 단계·콘솔·네트워크·Git
+fingerprint를 보조 판정면으로 제공합니다. `FRESH`가 아닌 증거는 승인 자료로 취급하지 않습니다.
+앱은 Android/iOS 어댑터가 생성한 동일한 Evidence Bundle을 연결해야 하며 공개 패키지는 내부 앱
+캡처를 포함하지 않습니다.
+
 ## Design rules
 
 - No diagram without provenance.
