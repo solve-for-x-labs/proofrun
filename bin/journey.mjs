@@ -46,9 +46,17 @@ export async function runJourney(specPath, outDir, repo) {
       else if (step.action === "fill") await page.locator(step.selector).fill(step.value ?? "");
       else if (step.action === "press") await page.locator(step.selector).press(step.key ?? "Enter");
       else throw new Error(`Unsupported action: ${step.action}`);
+      if (step.waitMs) await page.waitForTimeout(step.waitMs);
       for (const assertion of step.expect ?? []) {
-        if (assertion.type === "visible" && !(await page.locator(assertion.selector).isVisible())) throw new Error(`Expected visible: ${assertion.selector}`);
-        if (assertion.type === "text" && !(await page.locator(assertion.selector).innerText()).includes(assertion.value)) throw new Error(`Expected text ${JSON.stringify(assertion.value)} in ${assertion.selector}`);
+        const locator = page.locator(assertion.selector);
+        if (assertion.type === "visible") {
+          await locator.waitFor({ state: "visible", timeout: assertion.timeoutMs ?? 5000 });
+          if (!(await locator.isVisible())) throw new Error(`Expected visible: ${assertion.selector}`);
+        }
+        if (assertion.type === "text") {
+          await locator.waitFor({ state: "visible", timeout: assertion.timeoutMs ?? 5000 });
+          if (!(await locator.innerText()).includes(assertion.value)) throw new Error(`Expected text ${JSON.stringify(assertion.value)} in ${assertion.selector}`);
+        }
         if (assertion.type === "url" && !page.url().includes(assertion.value)) throw new Error(`Expected URL to include ${assertion.value}`);
       }
     } catch (caught) { status = "FAILED"; runStatus = "FAILED"; error = caught.message; }
