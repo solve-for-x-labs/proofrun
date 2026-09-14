@@ -1,0 +1,463 @@
+{
+  "generator": "proofrun/forecast",
+  "description": "Deterministic rules-first Intervention Forecast baseline (no model confidence, no API).",
+  "note": "Predicted and observed values are stored in separate fields; calibration metrics are null until enough matched samples exist.",
+  "examples": {
+    "normalSuccess": {
+      "input": {
+        "fingerprint": {
+          "model": "deepseek-v3",
+          "provider": "deepseek",
+          "tool": "bash",
+          "repository": "proofrun/forecast",
+          "providerHealth": "ok",
+          "toolHealth": "ok",
+          "repoTrust": "trusted"
+        },
+        "k": 5,
+        "expectedRemainingSteps": 8,
+        "stepsPerHour": 12,
+        "completionProgress": 0.55,
+        "gatesRemaining": 0
+      },
+      "severity": {
+        "score": 0,
+        "contributors": {
+          "providerHealth": 0,
+          "toolHealth": 0,
+          "repoTrust": 0,
+          "recentFailures": 0,
+          "recentGate": 0,
+          "recentErrors": 0
+        }
+      },
+      "exception": {
+        "k": 5,
+        "perStepRate": 0.03,
+        "probNextK": 0.1413,
+        "source": "default-baseline",
+        "basis": "default base rate 0.03 scaled by severity factor 1 (no empirical sample >= 8), horizon k=5"
+      },
+      "gate": {
+        "probBeforeCompletion": 0.1492,
+        "gateExpected": false,
+        "basis": "per-step gate rate 0.02 over 8 remaining steps (no planned gates)"
+      },
+      "etaToNextGateMin": {
+        "p50": null,
+        "p90": null,
+        "gateExpected": false,
+        "basis": "no human gate planned before completion"
+      },
+      "reviewTimeMin": {
+        "p50": 5,
+        "p90": 20,
+        "source": "default-baseline",
+        "basis": "human review: default baseline (no empirical sample >= 3), scaled by current severity"
+      },
+      "recoveryTimeMin": {
+        "p50": 10,
+        "p90": 45,
+        "source": "default-baseline",
+        "basis": "recovery: default baseline (no empirical sample >= 3), scaled by current severity"
+      },
+      "mode": {
+        "recommended": "AUTO",
+        "reasons": [
+          "below intervention thresholds"
+        ]
+      },
+      "uncertainty": {
+        "level": "medium",
+        "sampleSizes": {
+          "exception": 0,
+          "review": 0,
+          "recovery": 0
+        },
+        "limitations": [
+          "Deterministic rules on limited signals; not a statistical model.",
+          "Default baselines are plausible placeholders, not measured values.",
+          "Assumes steps are roughly homogeneous and independent.",
+          "exception rate uses default (need >= 8 observed steps).",
+          "review time uses default baseline (< 3 samples).",
+          "recovery time uses default baseline (< 3 samples)."
+        ]
+      }
+    },
+    "repeatedFailure": {
+      "input": {
+        "fingerprint": {
+          "model": "deepseek-v3",
+          "provider": "deepseek",
+          "providerHealth": "degraded",
+          "tool": "bash",
+          "toolHealth": "ok",
+          "repository": "proofrun/forecast",
+          "repoTrust": "trusted"
+        },
+        "k": 5,
+        "expectedRemainingSteps": 10,
+        "stepsPerHour": 10,
+        "completionProgress": 0.4,
+        "gatesRemaining": 1
+      },
+      "severity": {
+        "score": 55,
+        "contributors": {
+          "providerHealth": 12,
+          "toolHealth": 0,
+          "repoTrust": 0,
+          "recentFailures": 40,
+          "recentGate": 0,
+          "recentErrors": 3
+        }
+      },
+      "exception": {
+        "k": 5,
+        "perStepRate": 0.0465,
+        "probNextK": 0.2119,
+        "source": "default-baseline",
+        "basis": "default base rate 0.03 scaled by severity factor 1.55 (no empirical sample >= 8), horizon k=5"
+      },
+      "gate": {
+        "probBeforeCompletion": 0.9228,
+        "gateExpected": true,
+        "basis": "per-step gate rate 0.0255 over 10 remaining steps + 1 planned gate(s) @ 0.9 each, combined by independent union"
+      },
+      "etaToNextGateMin": {
+        "p50": 60,
+        "p90": 108,
+        "gateExpected": true,
+        "basis": "next of 1 planned gate(s) in ~10 step(s) at 10 steps/hr"
+      },
+      "reviewTimeMin": {
+        "p50": 6.4,
+        "p90": 25.5,
+        "source": "default-baseline",
+        "basis": "human review: default baseline (no empirical sample >= 3), scaled by current severity"
+      },
+      "recoveryTimeMin": {
+        "p50": 12.8,
+        "p90": 57.4,
+        "source": "default-baseline",
+        "basis": "recovery: default baseline (no empirical sample >= 3), scaled by current severity"
+      },
+      "mode": {
+        "recommended": "PAUSE",
+        "reasons": [
+          "repeated failures in recent window",
+          "danger signals beyond pause thresholds"
+        ]
+      },
+      "uncertainty": {
+        "level": "high",
+        "sampleSizes": {
+          "exception": 0,
+          "review": 0,
+          "recovery": 0
+        },
+        "limitations": [
+          "Deterministic rules on limited signals; not a statistical model.",
+          "Default baselines are plausible placeholders, not measured values.",
+          "Assumes steps are roughly homogeneous and independent.",
+          "exception rate uses default (need >= 8 observed steps).",
+          "review time uses default baseline (< 3 samples).",
+          "recovery time uses default baseline (< 3 samples)."
+        ]
+      }
+    },
+    "riskyChange": {
+      "input": {
+        "fingerprint": {
+          "model": "deepseek-v3",
+          "provider": "deepseek",
+          "providerHealth": "ok",
+          "tool": "edit",
+          "toolHealth": "degraded",
+          "repository": "vendor/third-party",
+          "repoTrust": "untrusted"
+        },
+        "k": 5,
+        "expectedRemainingSteps": 6,
+        "stepsPerHour": 12,
+        "completionProgress": 0.5,
+        "gatesRemaining": 2
+      },
+      "severity": {
+        "score": 23,
+        "contributors": {
+          "providerHealth": 0,
+          "toolHealth": 8,
+          "repoTrust": 10,
+          "recentFailures": 0,
+          "recentGate": 5,
+          "recentErrors": 0
+        }
+      },
+      "exception": {
+        "k": 5,
+        "perStepRate": 0.0369,
+        "probNextK": 0.1714,
+        "source": "default-baseline",
+        "basis": "default base rate 0.03 scaled by severity factor 1.23 (no empirical sample >= 8), horizon k=5"
+      },
+      "gate": {
+        "probBeforeCompletion": 0.9913,
+        "gateExpected": true,
+        "basis": "per-step gate rate 0.0223 over 6 remaining steps + 2 planned gate(s) @ 0.9 each, combined by independent union"
+      },
+      "etaToNextGateMin": {
+        "p50": 15,
+        "p90": 27,
+        "gateExpected": true,
+        "basis": "next of 2 planned gate(s) in ~3 step(s) at 12 steps/hr"
+      },
+      "reviewTimeMin": {
+        "p50": 5.6,
+        "p90": 22.3,
+        "source": "default-baseline",
+        "basis": "human review: default baseline (no empirical sample >= 3), scaled by current severity"
+      },
+      "recoveryTimeMin": {
+        "p50": 11.2,
+        "p90": 50.2,
+        "source": "default-baseline",
+        "basis": "recovery: default baseline (no empirical sample >= 3), scaled by current severity"
+      },
+      "mode": {
+        "recommended": "NOTIFY",
+        "reasons": [
+          "intervention point likely or elevated risk"
+        ]
+      },
+      "uncertainty": {
+        "level": "medium",
+        "sampleSizes": {
+          "exception": 0,
+          "review": 0,
+          "recovery": 0
+        },
+        "limitations": [
+          "Deterministic rules on limited signals; not a statistical model.",
+          "Default baselines are plausible placeholders, not measured values.",
+          "Assumes steps are roughly homogeneous and independent.",
+          "exception rate uses default (need >= 8 observed steps).",
+          "review time uses default baseline (< 3 samples).",
+          "recovery time uses default baseline (< 3 samples)."
+        ]
+      }
+    },
+    "providerHealthMissing": {
+      "input": {
+        "fingerprint": {
+          "model": "deepseek-v3",
+          "provider": "deepseek",
+          "providerHealth": "unknown",
+          "tool": "bash",
+          "toolHealth": "unknown",
+          "repository": "proofrun/forecast",
+          "repoTrust": "trusted"
+        },
+        "k": 5,
+        "expectedRemainingSteps": 8,
+        "stepsPerHour": 12,
+        "completionProgress": 0.5,
+        "gatesRemaining": 0
+      },
+      "severity": {
+        "score": 25,
+        "contributors": {
+          "providerHealth": 15,
+          "toolHealth": 10,
+          "repoTrust": 0,
+          "recentFailures": 0,
+          "recentGate": 0,
+          "recentErrors": 0
+        }
+      },
+      "exception": {
+        "k": 5,
+        "perStepRate": 0.0375,
+        "probNextK": 0.174,
+        "source": "default-baseline",
+        "basis": "default base rate 0.03 scaled by severity factor 1.25 (no empirical sample >= 8), horizon k=5"
+      },
+      "gate": {
+        "probBeforeCompletion": 0.1664,
+        "gateExpected": false,
+        "basis": "per-step gate rate 0.0225 over 8 remaining steps (no planned gates)"
+      },
+      "etaToNextGateMin": {
+        "p50": null,
+        "p90": null,
+        "gateExpected": false,
+        "basis": "no human gate planned before completion"
+      },
+      "reviewTimeMin": {
+        "p50": 5.6,
+        "p90": 22.5,
+        "source": "default-baseline",
+        "basis": "human review: default baseline (no empirical sample >= 3), scaled by current severity"
+      },
+      "recoveryTimeMin": {
+        "p50": 11.3,
+        "p90": 50.6,
+        "source": "default-baseline",
+        "basis": "recovery: default baseline (no empirical sample >= 3), scaled by current severity"
+      },
+      "mode": {
+        "recommended": "NOTIFY",
+        "reasons": [
+          "intervention point likely or elevated risk"
+        ]
+      },
+      "uncertainty": {
+        "level": "high",
+        "sampleSizes": {
+          "exception": 0,
+          "review": 0,
+          "recovery": 0
+        },
+        "limitations": [
+          "Deterministic rules on limited signals; not a statistical model.",
+          "Default baselines are plausible placeholders, not measured values.",
+          "Assumes steps are roughly homogeneous and independent.",
+          "provider health unknown (treated as risk).",
+          "exception rate uses default (need >= 8 observed steps).",
+          "review time uses default baseline (< 3 samples).",
+          "recovery time uses default baseline (< 3 samples)."
+        ]
+      }
+    },
+    "empiricalHistory": {
+      "input": {
+        "fingerprint": {
+          "model": "deepseek-v3",
+          "provider": "deepseek",
+          "tool": "bash",
+          "repository": "proofrun/forecast",
+          "providerHealth": "ok",
+          "toolHealth": "ok",
+          "repoTrust": "trusted"
+        },
+        "k": 5,
+        "expectedRemainingSteps": 8,
+        "stepsPerHour": 12,
+        "completionProgress": 0.5,
+        "gatesRemaining": 1
+      },
+      "severity": {
+        "score": 15,
+        "contributors": {
+          "providerHealth": 0,
+          "toolHealth": 0,
+          "repoTrust": 0,
+          "recentFailures": 10,
+          "recentGate": 5,
+          "recentErrors": 0
+        }
+      },
+      "exception": {
+        "k": 5,
+        "perStepRate": 0.1667,
+        "probNextK": 0.5981,
+        "source": "empirical",
+        "basis": "per-step rate from 12 observed steps (run history), horizon k=5"
+      },
+      "gate": {
+        "probBeforeCompletion": 0.916,
+        "gateExpected": true,
+        "basis": "per-step gate rate 0.0215 over 8 remaining steps + 1 planned gate(s) @ 0.9 each, combined by independent union"
+      },
+      "etaToNextGateMin": {
+        "p50": 40,
+        "p90": 72,
+        "gateExpected": true,
+        "basis": "next of 1 planned gate(s) in ~8 step(s) at 12 steps/hr"
+      },
+      "reviewTimeMin": {
+        "p50": 7,
+        "p90": 10.6,
+        "source": "empirical",
+        "basis": "human review: empirical percentiles from 8 observed values, scaled by current severity"
+      },
+      "recoveryTimeMin": {
+        "p50": 11.3,
+        "p90": 17,
+        "source": "empirical",
+        "basis": "recovery: empirical percentiles from 8 observed values, scaled by current severity"
+      },
+      "mode": {
+        "recommended": "PAUSE",
+        "reasons": [
+          "danger signals beyond pause thresholds"
+        ]
+      },
+      "uncertainty": {
+        "level": "low",
+        "sampleSizes": {
+          "exception": 12,
+          "review": 8,
+          "recovery": 8
+        },
+        "limitations": [
+          "Deterministic rules on limited signals; not a statistical model.",
+          "Default baselines are plausible placeholders, not measured values.",
+          "Assumes steps are roughly homogeneous and independent."
+        ]
+      }
+    }
+  },
+  "calibration": {
+    "records": [
+      {
+        "predicted": {
+          "exceptionProbNextK": 0.1413,
+          "gateProb": 0.1492,
+          "etaGateMin": null,
+          "reviewMinP50": 5,
+          "recoveryMinP50": 10
+        },
+        "observed": {
+          "exceptionOccurred": false,
+          "gateOccurred": false,
+          "gateMin": null,
+          "reviewMin": 6,
+          "recoveryMin": null
+        }
+      },
+      {
+        "predicted": {
+          "exceptionProbNextK": 0.2119,
+          "gateProb": 0.9228,
+          "etaGateMin": 60,
+          "reviewMinP50": 6.4,
+          "recoveryMinP50": 12.8
+        },
+        "observed": {
+          "exceptionOccurred": true,
+          "gateOccurred": true,
+          "gateMin": 9,
+          "reviewMin": 14,
+          "recoveryMin": 22
+        }
+      }
+    ],
+    "summary": {
+      "n": 2,
+      "nMatchedException": 2,
+      "nMatchedGate": 2,
+      "nMatchedReview": 2,
+      "nMatchedRecovery": 1,
+      "metrics": {
+        "exceptionBrier": null,
+        "gateBrier": null,
+        "gateMAEmin": null,
+        "reviewMAEmin": null,
+        "recoveryMAEmin": null
+      },
+      "note": "insufficient matched samples (need >= 5); metrics are null, not 0 — accuracy is not asserted from predictions",
+      "sufficientForAccuracy": false
+    }
+  }
+}

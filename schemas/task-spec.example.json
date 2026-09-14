@@ -1,0 +1,18 @@
+{
+  "task": "add-health-route",
+  "repository": "./fixture-next-app",
+  "permissions": {
+    "filesystem": "workspace-write",
+    "network": "deny",
+    "externalActions": "approval-required"
+  },
+  "checks": [
+    "pnpm test",
+    "pnpm typecheck"
+  ],
+  "gates": {
+    "intent": "required",
+    "circuitBreakerAfterFailures": 3,
+    "blastRadius": "required"
+  }
+}

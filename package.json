@@ -1,0 +1,13 @@
+{
+  "name": "proofrun",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "test": "node --test packages/analyzers/test/*.test.mjs packages/forecast/test/*.test.mjs",
+    "build:baseline": "node scripts/build-baseline.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

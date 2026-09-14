@@ -1,0 +1,19 @@
+{
+  "name": "@proofrun/forecast",
+  "version": "0.1.0",
+  "description": "Rules-first Intervention Forecast baseline. Deterministic, transparent, no model self-confidence, no external API.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --test test/",
+    "example": "node src/make-example.ts"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}

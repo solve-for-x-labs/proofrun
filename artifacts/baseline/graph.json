@@ -1,0 +1,47 @@
+{
+  "basis": "heuristic",
+  "sourceRoot": ".",
+  "nodes": [
+    {
+      "id": "app/page.tsx",
+      "kind": "route",
+      "label": "Home",
+      "source": {
+        "path": "app/page.tsx",
+        "line": 2
+      }
+    },
+    {
+      "id": "components/TaskList.tsx",
+      "kind": "component",
+      "label": "TaskList",
+      "source": {
+        "path": "components/TaskList.tsx",
+        "line": 2
+      }
+    },
+    {
+      "id": "state/tasks.ts",
+      "kind": "state",
+      "label": "TaskStatus",
+      "source": {
+        "path": "state/tasks.ts",
+        "line": 1
+      }
+    },
+    {
+      "id": "tests/tasks.test.ts",
+      "kind": "test",
+      "label": "tasks.test",
+      "source": {
+        "path": "tests/tasks.test.ts",
+        "line": 1
+      }
+    }
+  ],
+  "edges": [],
+  "limitations": [
+    "Import resolution is extension-aware regex analysis, not a full TypeScript AST.",
+    "Dynamic runtime edges are not inferred."
+  ]
+}
