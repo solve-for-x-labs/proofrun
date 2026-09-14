@@ -5,6 +5,7 @@ import { basename, extname, join, relative, resolve } from "node:path";
 const VERSION = "0.5.0";
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".go", ".rs", ".java", ".kt", ".swift", ".vue", ".svelte", ".php", ".rb"]);
 const HELP = `ProofRun ${VERSION} — source-linked evidence for agentic software work\n\nUsage:\n  proofrun baseline <source-dir> [options]\n  proofrun journey <journey.json> --out <dir> --repo <source-dir>\n  proofrun verify <evidence.json> --repo <source-dir>\n\nBaseline options:\n  --out <dir>       Output directory (default: proofrun-output)\n  --format <mode>   json, html, or both (default: both)\n  --include <text>  Comma-separated path fragments to include\n  --exclude <text>  Comma-separated path fragments to exclude\n\nJourney requires optional Playwright: npm install -D playwright && npx playwright install chromium\nIt captures real browser screens, console/network failures, step assertions, and Git freshness.\n\n  --version         Print version\n  --help            Print this help\n`;
+const MERGE_HELP = `\n  proofrun merge <evidence.json>... --out <dir>\n\nMerge combines web/mobile runtime manifests into one visual admin viewer.\n`;
 
 async function walk(root, dir = root, out = {}) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -61,7 +62,7 @@ function html(graph) {
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]); }
 
 async function main(argv) {
-  if (argv.includes("--help") || argv.length === 0) { process.stdout.write(HELP); return; }
+  if (argv.includes("--help") || argv.length === 0) { process.stdout.write(HELP + MERGE_HELP); return; }
   if (argv.includes("--version")) { process.stdout.write(`${VERSION}\n`); return; }
   if (argv[0] === "journey" || argv[0] === "verify") {
     const module = await import("./journey.mjs");
