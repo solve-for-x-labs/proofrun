@@ -11,3 +11,9 @@
 ## 0.2.0
 
 - First installable GitHub Release CLI.
+## 0.4.0
+
+- Add real Playwright-backed user journey capture and visual replay.
+- Record per-step screenshots, assertions, console/network failures, DOM/screenshot hashes, and Git freshness.
+- Add `proofrun journey` and `proofrun verify` commands with explicit `STALE_REVERIFY_REQUIRED` handling.
+- Add a runnable journey fixture and schema examples.

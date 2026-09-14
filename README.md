@@ -33,6 +33,37 @@ npm run view
 open http://localhost:8766/viewer/
 ```
 
+## Run a real user journey
+
+The baseline is only a source map. It is not runtime proof. For runtime proof, define a journey
+with real actions and assertions, then run it with the optional Playwright browser adapter:
+
+```bash
+npm install -D playwright
+npx playwright install chromium
+node examples/journey-app/server.mjs
+# in another terminal
+node bin/proofrun.mjs journey schemas/journey-spec.example.json \
+  --repo . --out proofrun-journey
+open proofrun-journey/replay.html
+```
+
+The replay is the primary artifact: it shows the real screen for every step, the exact failed
+assertion, console/network failures, runtime fingerprint, and the Git state that produced the
+screens. A failed journey stops at the first failed step and still preserves that screen.
+
+Re-check freshness before accepting evidence:
+
+```bash
+node bin/proofrun.mjs verify proofrun-journey/evidence.json --repo .
+# FRESH or exit 2 with STALE_REVERIFY_REQUIRED
+```
+
+The example fixture is deliberately small but real. Replace the example JSON with a journey for
+your web app. Supported actions are `goto`, `fill`, `click`, and `press`; assertions are
+`visible`, `text`, and `url`. When Playwright is not installed, ProofRun fails explicitly rather
+than presenting a synthetic screenshot as runtime evidence.
+
 Each viewer tab is deep-linkable: `#live`, `#apps`, `#resources`, `#evidence`.
 The `#evidence` tab reads `artifacts/baseline/graph.json`, so run `npm run build:baseline` first.
 
@@ -65,8 +96,10 @@ html` for a reviewer artifact, and `--include`/`--exclude` to scope large reposi
 See [docs/ADAPTERS.md](docs/ADAPTERS.md) for the extension contract and [CONTRIBUTING.md](CONTRIBUTING.md)
 for the OSS workflow.
 
-The standalone page is a reviewer surface, not a production dashboard. It shows the
-source path and line for each displayed node so a human can verify the picture against code.
+The standalone baseline page is a reviewer surface, not runtime proof. The journey replay is the
+runtime viewer. It shows actual browser pixels first; text is only the decision metadata around
+the captured screen. No screenshot is presented as live evidence unless it was captured during
+the current run.
 
 ## Design rules
 

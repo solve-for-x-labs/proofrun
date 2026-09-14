@@ -20,7 +20,7 @@ test("installed-style CLI generates source-linked artifacts", async () => {
 
 test("CLI exposes stable version and scoped JSON output", async () => {
   const version = await run(process.execPath, ["bin/proofrun.mjs", "--version"]);
-  assert.equal(version.stdout.trim(), "0.3.0");
+  assert.equal(version.stdout.trim(), "0.4.0");
   const root = await mkdtemp(join(tmpdir(), "proofrun-scope-"));
   const source = join(root, "src"); const out = join(root, "out");
   await mkdir(join(source, "app"), { recursive: true });

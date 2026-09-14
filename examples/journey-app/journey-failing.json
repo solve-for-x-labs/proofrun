@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "0.1",
+  "name": "contact form regression",
+  "baseUrl": "http://127.0.0.1:8787",
+  "startPath": "/",
+  "viewport": { "width": 1280, "height": 800 },
+  "steps": [
+    { "id": "open", "action": "goto", "path": "/", "expect": [{ "type": "visible", "selector": "[data-testid=contact-form]" }] },
+    { "id": "submit", "action": "click", "selector": "[data-testid=submit]", "expect": [{ "type": "text", "selector": "[data-testid=success]", "value": "This assertion intentionally fails" }] }
+  ]
+}

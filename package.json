@@ -1,6 +1,6 @@
 {
   "name": "proofrun",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Code-grounded human decisions for agentic software work",
   "license": "MIT",
   "bin": {
@@ -10,7 +10,10 @@
     "bin",
     "viewer",
     "schemas",
+    "examples",
     "README.md",
+    "CHANGELOG.md",
+    "docs",
     "LICENSE"
   ],
   "engines": {
@@ -39,7 +42,11 @@
   "scripts": {
     "test": "node --test packages/analyzers/test/*.test.mjs packages/forecast/test/*.test.mjs test/*.test.mjs",
     "build:baseline": "node scripts/build-baseline.mjs",
+    "journey:fixture": "node examples/journey-app/server.mjs",
     "view": "python3 -m http.server 8766 --directory ."
+  },
+  "optionalDependencies": {
+    "playwright": "^1.63.0"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

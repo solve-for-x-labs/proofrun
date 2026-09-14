@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "0.1",
+  "name": "contact form happy path",
+  "baseUrl": "http://127.0.0.1:8787",
+  "startPath": "/",
+  "viewport": { "width": 1280, "height": 800 },
+  "steps": [
+    { "id": "open", "action": "goto", "path": "/", "sourceRefs": ["examples/journey-app/server.mjs:3"], "expect": [{ "type": "visible", "selector": "[data-testid=contact-form]" }] },
+    { "id": "fill-name", "action": "fill", "selector": "[name=name]", "sourceRefs": ["examples/journey-app/server.mjs:3"], "value": "Ada" },
+    { "id": "submit", "action": "click", "selector": "[data-testid=submit]", "sourceRefs": ["examples/journey-app/server.mjs:3"], "expect": [{ "type": "text", "selector": "[data-testid=success]", "value": "Message sent" }] }
+  ]
+}
