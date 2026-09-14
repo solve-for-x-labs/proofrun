@@ -10,6 +10,7 @@ worker-runs/W6-oss-dx/package.json
 worker-runs/W6-oss-dx/patch/
 worker-runs/W6-oss-dx/test/
 worker-runs/W7-adapter/bin/
+worker-runs/W7-adapter/packages/
 dist/
 .turbo/
 .env*
