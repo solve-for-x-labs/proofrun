@@ -21,7 +21,13 @@ PARTIAL
 
 ## Not claimed
 
-- No public GitHub repository yet.
+- Public GitHub repository and `v0.2.0` release are available.
 - No real production repository adapter, live UI server, merge/deploy action, or calibrated
   probability model yet.
 - No claim that GPU capacity is infinite; the harness remains concurrency-capped.
+
+## Release status
+
+The public GitHub Release `v0.2.0` is now available with an installable tarball. Fresh
+installation from the release URL and CLI execution were verified. npm registry publication
+was intentionally not performed; the release asset is the current supported distribution.
