@@ -28,7 +28,18 @@ The core is dependency-light, read-only, and uses explicit heuristic labels.
 npm test
 npm run build:baseline
 open artifacts/baseline/index.html
+# 실제 웹 화면·앱 캡처·공개 리소스를 보는 뷰어
+npm run view
+open http://localhost:8766/viewer/
 ```
+
+Each viewer tab is deep-linkable: `#live`, `#apps`, `#resources`, `#evidence`.
+The `#evidence` tab reads `artifacts/baseline/graph.json`, so run `npm run build:baseline` first.
+
+The viewer is a read-only visual surface: it loads the live Solve-for-X web page,
+public web assets, and provenance-labelled app screenshots. App screenshots are
+marked `PARTIAL_RUNTIME_EVIDENCE` unless a simulator/device adapter captured them
+during the current run; the viewer never presents an old capture as a live run.
 
 ## Install the CLI
 

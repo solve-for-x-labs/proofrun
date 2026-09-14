@@ -18,3 +18,8 @@ dist/
 artifacts/runs/
 coverage/
 *.log
+
+# 내부 저장소 분석 산출물은 공개 저장소에 두지 않는다.
+# 워크스페이스(리모트 없음) internal/proofrun-runs/ 로 이동됨.
+analysis/
+worker-runs/internal-*

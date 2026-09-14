@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "0.1",
+  "runId": "run_example",
+  "viewerStatus": "ready",
+  "decision": {
+    "status": "REVIEW_REQUIRED",
+    "summary": "웹 화면 증거가 생성되었고 변경 범위가 검토 대기 중입니다.",
+    "reviewEta": {"p50Seconds": 45, "p90Seconds": 120, "basis": "prior_only", "uncertainty": "high"}
+  },
+  "fingerprint": {
+    "repo": "example/repo",
+    "repoSha": "0000000000000000000000000000000000000000",
+    "diffSha256": "example",
+    "model": "example-model",
+    "provider": "example-provider",
+    "runtime": "example-runtime"
+  },
+  "artifacts": [
+    {"kind": "source-graph", "path": "graph.json", "mime": "application/json"},
+    {"kind": "decision-card", "path": "decision.html", "mime": "text/html"},
+    {"kind": "screenshot", "path": "screens/home.png", "mime": "image/png"}
+  ],
+  "freshness": {"status": "VERIFIED", "checkedAt": "2026-09-14T00:00:00Z"},
+  "humanActions": ["approve", "reject", "request_change", "rollback"]
+}
