@@ -19,7 +19,7 @@ real Next.js repository
 
 ## Status
 
-Early public prototype: [github.com/dlwlgnsrhy/proofrun](https://github.com/dlwlgnsrhy/proofrun).
+Early public prototype: [github.com/solve-for-x-labs/proofrun](https://github.com/solve-for-x-labs/proofrun).
 The core is dependency-light, read-only, and uses explicit heuristic labels.
 
 ## Run locally
@@ -35,7 +35,7 @@ open artifacts/baseline/index.html
 After the tagged GitHub release is published:
 
 ```bash
-npm install -g https://github.com/dlwlgnsrhy/proofrun/releases/download/v0.3.0/proofrun-0.3.0.tgz
+npm install -g https://github.com/solve-for-x-labs/proofrun/releases/download/v0.3.0/proofrun-0.3.0.tgz
 proofrun baseline ./your-repository --out ./proofrun-output
 ```
 

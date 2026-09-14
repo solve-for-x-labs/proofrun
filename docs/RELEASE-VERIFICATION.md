@@ -1,18 +1,18 @@
 # Release verification
 
-Release: [v0.3.0](https://github.com/dlwlgnsrhy/proofrun/releases/tag/v0.3.0)
+Release: [v0.3.0](https://github.com/solve-for-x-labs/proofrun/releases/tag/v0.3.0)
 
 Asset:
 
 ```text
-https://github.com/dlwlgnsrhy/proofrun/releases/download/v0.3.0/proofrun-0.3.0.tgz
+https://github.com/solve-for-x-labs/proofrun/releases/download/v0.3.0/proofrun-0.3.0.tgz
 ```
 
 Verified on 2026-09-14:
 
 ```bash
 npm install --prefix "$TMP" \
-  https://github.com/dlwlgnsrhy/proofrun/releases/download/v0.3.0/proofrun-0.3.0.tgz
+  https://github.com/solve-for-x-labs/proofrun/releases/download/v0.3.0/proofrun-0.3.0.tgz
 "$TMP/node_modules/.bin/proofrun" baseline packages --out "$TMP/out" --format both --exclude worker-runs
 ```
 
