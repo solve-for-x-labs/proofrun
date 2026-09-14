@@ -61,7 +61,7 @@ export async function runJourney(specPath, outDir, repo) {
       }
     } catch (caught) { status = "FAILED"; runStatus = "FAILED"; error = caught.message; }
     const filename = `${String(index + 1).padStart(2, "0")}-${step.id}.png`; const screenshotPath = `${outDir}/screens/${filename}`;
-    await page.screenshot({ path: screenshotPath, fullPage: true });
+    await page.screenshot({ path: screenshotPath, fullPage: step.fullPage ?? false });
     const dom = await page.content();
     steps.push({ id: step.id, action: step.action, selector: step.selector ?? null, sourceRefs: step.sourceRefs ?? [], status, error, url: page.url(), title: await page.title(), screenshot: `screens/${filename}`, screenshotSha256: await fileSha(screenshotPath), domSha256: sha(dom), durationMs: Date.now() - started, consoleCount: consoleEvents.length, networkFailureCount: networkFailures.length });
     if (status === "FAILED") break;

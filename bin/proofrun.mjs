@@ -78,6 +78,16 @@ async function main(argv) {
     if (result.status !== "FRESH") process.exitCode = 2;
     return;
   }
+  if (argv[0] === "merge") {
+    const module = await import("./merge.mjs");
+    const option = (name, fallback) => { const index = argv.indexOf(name); return index >= 0 ? argv[index + 1] : fallback; };
+    const out = resolve(option("--out", "proofrun-admin"));
+    const inputs = argv.slice(1).filter((item, index, all) => !item.startsWith("--") && (index === 0 || all[index - 1] !== "--out"));
+    if (!inputs.length) throw new Error("merge requires at least one evidence.json");
+    const result = await module.mergeEvidence(inputs.map((item) => resolve(item)), out);
+    process.stdout.write(`ProofRun merge ${result.status}: ${out}/admin.html\n`);
+    return;
+  }
   if (argv[0] !== "baseline") throw new Error("Unknown command. Run `proofrun --help`.");
   const source = resolve(argv[1] ?? "");
   const option = (name, fallback) => { const index = argv.indexOf(name); return index >= 0 ? argv[index + 1] : fallback; };

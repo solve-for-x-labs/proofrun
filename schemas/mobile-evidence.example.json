@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "0.1",
+  "kind": "proofrun-mobile-evidence",
+  "name": "Example mobile journey",
+  "status": "PASSED",
+  "source": {
+    "repo": "./app",
+    "gitHead": "<commit-sha>",
+    "diffSha256": "<sha256>"
+  },
+  "runtime": {
+    "adapter": "maestro|artemis|appium|flutter-integration-test",
+    "platform": "ios|android",
+    "device": "<device-or-emulator-id>",
+    "os": "<version>"
+  },
+  "steps": [
+    {
+      "id": "open-home",
+      "title": "Open home",
+      "action": "launch",
+      "status": "PASSED",
+      "screenshot": "screens/01-open-home.png",
+      "video": "video/journey.mp4",
+      "sourceRefs": ["lib/home.dart:42"]
+    }
+  ],
+  "limitations": [
+    "A successful journey proves the configured assertions for this run; it is not a universal correctness claim."
+  ]
+}
