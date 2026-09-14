@@ -1,0 +1,7 @@
+# Human review is required for every production-facing change.
+* @dlwlgnsrhy
+.github/ @dlwlgnsrhy
+packages/core/ @dlwlgnsrhy
+packages/analyzers/ @dlwlgnsrhy
+packages/forecast/ @dlwlgnsrhy
+bin/ @dlwlgnsrhy

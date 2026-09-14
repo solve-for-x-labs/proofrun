@@ -1,0 +1,26 @@
+node_modules/
+worker-runs/W4-cli/bin/
+worker-runs/W4-cli/src/
+worker-runs/W4-cli/test/
+worker-runs/W4-cli/package.json
+worker-runs/W5-release/
+worker-runs/W6-oss-dx/bin/
+worker-runs/W6-oss-dx/docs/
+worker-runs/W6-oss-dx/package.json
+worker-runs/W6-oss-dx/patch/
+worker-runs/W6-oss-dx/test/
+worker-runs/W7-adapter/bin/
+worker-runs/W7-adapter/packages/
+dist/
+.turbo/
+.env*
+!.env.example
+artifacts/
+proofrun-*.tgz
+coverage/
+*.log
+
+# 내부 저장소 분석 산출물은 공개 저장소에 두지 않는다.
+# 로컬 실행 산출물은 공개 저장소에 포함하지 않는다.
+analysis/
+worker-runs/

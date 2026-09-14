@@ -1,0 +1,53 @@
+{
+  "name": "proofrun",
+  "version": "0.4.2",
+  "description": "Code-grounded human decisions for agentic software work",
+  "license": "MIT",
+  "bin": {
+    "proofrun": "bin/proofrun.mjs"
+  },
+  "files": [
+    "bin",
+    "schemas",
+    "examples",
+    "README.md",
+    "CHANGELOG.md",
+    "docs",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/solve-for-x-labs/proofrun.git"
+  },
+  "homepage": "https://github.com/solve-for-x-labs/proofrun#readme",
+  "bugs": {
+    "url": "https://github.com/solve-for-x-labs/proofrun/issues"
+  },
+  "keywords": [
+    "agent",
+    "agentic",
+    "code-analysis",
+    "provenance",
+    "human-in-the-loop",
+    "developer-tools"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "test": "node --test packages/analyzers/test/*.test.mjs packages/forecast/test/*.test.mjs test/*.test.mjs",
+    "build:baseline": "node scripts/build-baseline.mjs",
+    "journey:fixture": "node examples/journey-app/server.mjs",
+    "view": "python3 -m http.server 8766 --directory ."
+  },
+  "optionalDependencies": {
+    "playwright": "^1.63.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
