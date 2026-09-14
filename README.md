@@ -19,7 +19,19 @@ real Next.js repository
 
 ## Status
 
-Early local prototype. The public repository and external integrations are not ready yet.
+Early public prototype: [github.com/dlwlgnsrhy/proofrun](https://github.com/dlwlgnsrhy/proofrun).
+The first slice is intentionally dependency-light and uses explicit heuristic labels.
+
+## Run locally
+
+```bash
+npm test
+npm run build:baseline
+open artifacts/baseline/index.html
+```
+
+The standalone page is a reviewer surface, not a production dashboard. It shows the
+source path and line for each displayed node so a human can verify the picture against code.
 
 ## Design rules
 
