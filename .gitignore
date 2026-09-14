@@ -1,4 +1,9 @@
 node_modules/
+worker-runs/W4-cli/bin/
+worker-runs/W4-cli/src/
+worker-runs/W4-cli/test/
+worker-runs/W4-cli/package.json
+worker-runs/W5-release/
 dist/
 .turbo/
 .env*
