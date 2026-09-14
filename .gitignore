@@ -4,6 +4,12 @@ worker-runs/W4-cli/src/
 worker-runs/W4-cli/test/
 worker-runs/W4-cli/package.json
 worker-runs/W5-release/
+worker-runs/W6-oss-dx/bin/
+worker-runs/W6-oss-dx/docs/
+worker-runs/W6-oss-dx/package.json
+worker-runs/W6-oss-dx/patch/
+worker-runs/W6-oss-dx/test/
+worker-runs/W7-adapter/bin/
 dist/
 .turbo/
 .env*

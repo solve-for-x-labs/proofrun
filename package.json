@@ -1,11 +1,16 @@
 {
   "name": "proofrun",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Code-grounded human decisions for agentic software work",
   "license": "MIT",
   "bin": {"proofrun": "bin/proofrun.mjs"},
   "files": ["bin", "README.md", "LICENSE"],
   "engines": {"node": ">=22"},
+  "repository": {"type": "git", "url": "git+https://github.com/dlwlgnsrhy/proofrun.git"},
+  "homepage": "https://github.com/dlwlgnsrhy/proofrun#readme",
+  "bugs": {"url": "https://github.com/dlwlgnsrhy/proofrun/issues"},
+  "keywords": ["agent", "agentic", "code-analysis", "provenance", "human-in-the-loop", "developer-tools"],
+  "publishConfig": {"access": "public"},
   "packageManager": "pnpm@10.0.0",
   "scripts": {
     "test": "node --test packages/analyzers/test/*.test.mjs packages/forecast/test/*.test.mjs test/*.test.mjs",

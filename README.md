@@ -20,7 +20,7 @@ real Next.js repository
 ## Status
 
 Early public prototype: [github.com/dlwlgnsrhy/proofrun](https://github.com/dlwlgnsrhy/proofrun).
-The first slice is intentionally dependency-light and uses explicit heuristic labels.
+The core is dependency-light, read-only, and uses explicit heuristic labels.
 
 ## Run locally
 
@@ -35,12 +35,24 @@ open artifacts/baseline/index.html
 After the tagged GitHub release is published:
 
 ```bash
-npm install -g https://github.com/dlwlgnsrhy/proofrun/releases/download/v0.2.0/proofrun-0.2.0.tgz
+npm install -g https://github.com/dlwlgnsrhy/proofrun/releases/download/v0.3.0/proofrun-0.3.0.tgz
 proofrun baseline ./your-repository --out ./proofrun-output
 ```
 
-The CLI is dependency-free and requires Node 22 or newer. The release tarball contains
-only the executable, package metadata, README, and license.
+The CLI is dependency-free and requires Node 22 or newer. Use `--format json` in CI, `--format
+html` for a reviewer artifact, and `--include`/`--exclude` to scope large repositories.
+
+## What makes it general-purpose
+
+- Works on common JavaScript/TypeScript, Python, Go, Rust, JVM, Swift, Vue, Svelte, PHP, and
+  Ruby source trees without assuming one framework.
+- Keeps every displayed node linked to a relative source path and line.
+- Produces a stable JSON schema that future AST/runtime adapters can implement.
+- Does not execute the target project, access credentials, call the network, or modify Git.
+- Keeps human approval, forecast, and irreversible-effect policy separate from the analyzer.
+
+See [docs/ADAPTERS.md](docs/ADAPTERS.md) for the extension contract and [CONTRIBUTING.md](CONTRIBUTING.md)
+for the OSS workflow.
 
 The standalone page is a reviewer surface, not a production dashboard. It shows the
 source path and line for each displayed node so a human can verify the picture against code.

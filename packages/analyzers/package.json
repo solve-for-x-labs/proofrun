@@ -1,6 +1,8 @@
 {
   "name": "@proofrun/analyzers",
-  "version": "0.1.0",
+  "version": "0.3.0",
+  "description": "Source-linked analyzer contracts and dependency-free baseline adapters",
   "type": "module",
+  "exports": {".": "./src/index.ts", "./adapter": "./src/adapter/index.ts"},
   "scripts": {"test": "node --test test/*.test.mjs"}
 }
