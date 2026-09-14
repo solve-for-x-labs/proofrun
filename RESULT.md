@@ -16,7 +16,8 @@ PARTIAL
 - `npm test`: 4 passed, 0 failed.
 - `npm run build:baseline`: completed; artifacts exist and are non-empty.
 - W1 worker: 33/33 tests passed; W3 worker: 22/22 tests passed.
-- W2 first worker: timed out after 900s; W2 retry is isolated and still being observed.
+- W2 first worker: timed out after 900s; the reduced retry also timed out after 600s with zero stdout.
+- Parent visual slice remains independently verified by the 4-test local run and generated artifacts.
 
 ## Not claimed
 
