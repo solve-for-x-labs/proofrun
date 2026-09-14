@@ -30,6 +30,18 @@ npm run build:baseline
 open artifacts/baseline/index.html
 ```
 
+## Install the CLI
+
+After the tagged GitHub release is published:
+
+```bash
+npm install -g https://github.com/dlwlgnsrhy/proofrun/releases/download/v0.2.0/proofrun-0.2.0.tgz
+proofrun baseline ./your-repository --out ./proofrun-output
+```
+
+The CLI is dependency-free and requires Node 22 or newer. The release tarball contains
+only the executable, package metadata, README, and license.
+
 The standalone page is a reviewer surface, not a production dashboard. It shows the
 source path and line for each displayed node so a human can verify the picture against code.
 
