@@ -1,0 +1,62 @@
+# Copy into .github/workflows/ of the repository you want to gate.
+#
+# The job fails the pull request when the recorded journey failed, when the evidence
+# no longer matches the commit under review, or when a step regressed against main.
+# Exit 3 from `proofrun gate` and `proofrun diff` is what blocks the merge.
+
+name: proofrun-evidence-gate
+
+on:
+  pull_request:
+
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # proofrun diff needs both commits to resolve the range
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install ProofRun and a browser
+        run: |
+          npm install -g proofrun
+          npm install -D playwright
+          npx playwright install --with-deps chromium
+
+      - name: Start the application under test
+        run: |
+          npm ci
+          npm run start &
+          npx wait-on http://127.0.0.1:3000
+
+      - name: Record the journey on this commit
+        run: proofrun journey journeys/checkout.json --repo . --out evidence/head
+
+      - name: Gate the merge on the recorded evidence
+        run: proofrun gate evidence/head/evidence.json --repo . --max-network-failures 0
+
+      - name: Compare against the baseline recorded on main
+        # The baseline is whatever artifact your main-branch run published.
+        continue-on-error: false
+        run: |
+          if [ -f baseline/evidence.json ]; then
+            proofrun diff baseline/evidence.json evidence/head/evidence.json \
+              --repo . --out evidence/diff
+          else
+            echo "No baseline evidence for this journey yet; recording one is the next step."
+          fi
+
+      - name: Publish the reviewer artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proofrun-evidence
+          path: |
+            evidence/head/replay.html
+            evidence/head/screens
+            evidence/head/gate.json
+            evidence/diff

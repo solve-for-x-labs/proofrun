@@ -20,3 +20,19 @@ ARTEMIS and Maestro are strong execution layers: they drive real devices, inspec
 - human review only after the actual screen, action, failure, and source reference are visible together.
 
 The archived `mobile-dev-inc/maestro-mcp` package must not be used as a dependency. Current Maestro includes MCP in its CLI; ProofRun should integrate through the current CLI/MCP or the neutral manifest.
+
+## The decision layer, concretely
+
+`merge` puts every surface in one viewer. Two further commands turn that viewer into a decision:
+
+- `proofrun diff` compares the same journey recorded at two commits and marks each step
+  `REGRESSION`, `FIX`, `STILL_FAILING`, or `STABLE`, with an independent visual verdict and the
+  commits that touched the files the step references.
+- `proofrun gate` converts a recorded bundle into `ALLOW` or `BLOCK` with an explicit check list
+  and CI exit codes.
+
+Neither re-executes anything. They read what an execution layer already recorded, which is why
+adapter neutrality matters: any tool that emits the manifest gets regression detection and a merge
+gate without changing how it drives devices.
+
+See [REGRESSION-GATE.md](REGRESSION-GATE.md).
