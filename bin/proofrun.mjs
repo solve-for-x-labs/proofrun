@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { basename, extname, join, relative, resolve } from "node:path";
+import { readFileSync } from "node:fs";
 
-const VERSION = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")).version;
+const VERSION = (() => { try { return JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version; } catch { return "0.0.0-unpackaged"; } })();
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".go", ".rs", ".java", ".kt", ".swift", ".vue", ".svelte", ".php", ".rb"]);
 const HELP = `ProofRun ${VERSION} — source-linked evidence for agentic software work\n\nUsage:\n  proofrun baseline <source-dir> [options]\n  proofrun journey <journey.json> --out <dir> --repo <source-dir>\n  proofrun verify <evidence.json> --repo <source-dir>\n\nBaseline options:\n  --out <dir>       Output directory (default: proofrun-output)\n  --format <mode>   json, html, or both (default: both)\n  --include <text>  Comma-separated path fragments to include\n  --exclude <text>  Comma-separated path fragments to exclude\n\nJourney requires optional Playwright: npm install -D playwright && npx playwright install chromium\nIt captures real browser screens, console/network failures, step assertions, and Git freshness.\n\n  --version         Print version\n  --help            Print this help\n`;
+const MERGE_HELP = `\n  proofrun merge <evidence.json>... --out <dir>\n  proofrun diff <before-evidence.json> <after-evidence.json> --out <dir> --repo <source-dir>\n  proofrun gate <evidence.json> --repo <source-dir> [policy]\n\nMerge combines web/mobile runtime manifests into one visual admin viewer.\n\nDiff replays the same journey at two commits side by side and marks each step\nREGRESSION, FIX, STILL_FAILING, or STABLE, with the commits in between and the\nchanged files the step actually references. Exit 3 when a regression is found.\n\nGate options (CI):\n  --no-fresh                 Skip Git freshness re-verification (recorded as a warning)\n  --allow-missing-media      Do not block when a step has no captured media\n  --max-network-failures <n> Allowed network failures (default: 0)\n  --max-console-events <n>   Allowed console events (default: unchecked)\n\nExit codes: 0 pass, 1 error, 2 stale evidence, 3 gate blocked or regression found.\n`;
 
 async function walk(root, dir = root, out = {}) {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -61,7 +63,7 @@ function html(graph) {
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]); }
 
 async function main(argv) {
-  if (argv.includes("--help") || argv.length === 0) { process.stdout.write(HELP); return; }
+  if (argv.includes("--help") || argv.length === 0) { process.stdout.write(HELP + MERGE_HELP + "\n  proofrun assess <evidence.json> --out <dir>\n"); return; }
   if (argv.includes("--version")) { process.stdout.write(`${VERSION}\n`); return; }
   if (argv[0] === "journey" || argv[0] === "verify") {
     const module = await import("./journey.mjs");
@@ -76,6 +78,51 @@ async function main(argv) {
     const result = await module.verifyEvidence(resolve(argv[1] ?? ""), resolve(option("--repo", process.cwd())));
     process.stdout.write(`ProofRun evidence ${result.status}\n`);
     if (result.status !== "FRESH") process.exitCode = 2;
+    return;
+  }
+  if (argv[0] === "merge") {
+    const module = await import("./merge.mjs");
+    const option = (name, fallback) => { const index = argv.indexOf(name); return index >= 0 ? argv[index + 1] : fallback; };
+    const out = resolve(option("--out", "proofrun-admin"));
+    const inputs = argv.slice(1).filter((item, index, all) => !item.startsWith("--") && (index === 0 || all[index - 1] !== "--out"));
+    if (!inputs.length) throw new Error("merge requires at least one evidence.json");
+    const result = await module.mergeEvidence(inputs.map((item) => resolve(item)), out);
+    process.stdout.write(`ProofRun merge ${result.status}: ${out}/admin.html\n`);
+    return;
+  }
+  if (argv[0] === "diff") {
+    const module = await import("./diff.mjs");
+    const option = (name, fallback) => { const index = argv.indexOf(name); return index >= 0 ? argv[index + 1] : fallback; };
+    const positional = argv.slice(1).filter((item, index, all) => !item.startsWith("--") && !String(all[index - 1] ?? "").startsWith("--"));
+    if (positional.length < 2) throw new Error("diff requires <before-evidence.json> <after-evidence.json>");
+    const out = resolve(option("--out", "proofrun-diff"));
+    const report = await module.diffEvidence(resolve(positional[0]), resolve(positional[1]), out, resolve(option("--repo", process.cwd())));
+    const { regressions, fixes, visualChanges, steps } = report.summary;
+    process.stdout.write(`ProofRun diff ${report.status}: ${steps} steps · ${regressions} regression(s) · ${fixes} fix(es) · ${visualChanges} visual change(s)\n${out}/diff.html\n`);
+    if (regressions > 0) process.exitCode = 3;
+    return;
+  }
+  if (argv[0] === "gate") {
+    const module = await import("./gate.mjs");
+    const option = (name, fallback) => { const index = argv.indexOf(name); return index >= 0 ? argv[index + 1] : fallback; };
+    const report = await module.gateEvidence(resolve(argv[1] ?? ""), resolve(option("--repo", process.cwd())), {
+      requireFresh: !argv.includes("--no-fresh"),
+      requireMedia: !argv.includes("--allow-missing-media"),
+      maxNetworkFailures: Number(option("--max-network-failures", 0)),
+      maxConsoleEvents: argv.includes("--max-console-events") ? Number(option("--max-console-events", 0)) : null
+    });
+    for (const item of report.checks) process.stdout.write(`  ${item.status.padEnd(5)} ${item.id} — ${item.detail}\n`);
+    process.stdout.write(`ProofRun gate ${report.decision}${report.blocking.length ? `: ${report.blocking.join(", ")}` : ""}\n`);
+    if (report.decision === "BLOCK") process.exitCode = 3;
+    return;
+  }
+  if (argv[0] === "assess") {
+    const module = await import("./readiness.mjs");
+    const option = (name, fallback) => { const index = argv.indexOf(name); return index >= 0 ? argv[index + 1] : fallback; };
+    const out = resolve(option("--out", "."));
+    const report = await module.assessEvidenceFile(resolve(argv[1] ?? ""), out);
+    process.stdout.write(`ProofRun readiness ${report.approval}: ${report.totalSteps} steps\n${out}/readiness.json\n`);
+    if (report.approval !== "APPROVABLE") process.exitCode = 3;
     return;
   }
   if (argv[0] !== "baseline") throw new Error("Unknown command. Run `proofrun --help`.");

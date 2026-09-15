@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 const run = promisify(execFile);
@@ -20,8 +19,9 @@ test("installed-style CLI generates source-linked artifacts", async () => {
 });
 
 test("CLI exposes stable version and scoped JSON output", async () => {
+  const packaged = JSON.parse(await readFile("package.json", "utf8")).version;
   const version = await run(process.execPath, ["bin/proofrun.mjs", "--version"]);
-  assert.equal(version.stdout.trim(), JSON.parse(readFileSync("package.json", "utf8")).version);
+  assert.equal(version.stdout.trim(), packaged);
   const root = await mkdtemp(join(tmpdir(), "proofrun-scope-"));
   const source = join(root, "src"); const out = join(root, "out");
   await mkdir(join(source, "app"), { recursive: true });
