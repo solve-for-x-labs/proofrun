@@ -63,7 +63,7 @@ function html(graph) {
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]); }
 
 async function main(argv) {
-  if (argv.includes("--help") || argv.length === 0) { process.stdout.write(HELP + MERGE_HELP); return; }
+  if (argv.includes("--help") || argv.length === 0) { process.stdout.write(HELP + MERGE_HELP + "\n  proofrun assess <evidence.json> --out <dir>\n"); return; }
   if (argv.includes("--version")) { process.stdout.write(`${VERSION}\n`); return; }
   if (argv[0] === "journey" || argv[0] === "verify") {
     const module = await import("./journey.mjs");
@@ -114,6 +114,15 @@ async function main(argv) {
     for (const item of report.checks) process.stdout.write(`  ${item.status.padEnd(5)} ${item.id} — ${item.detail}\n`);
     process.stdout.write(`ProofRun gate ${report.decision}${report.blocking.length ? `: ${report.blocking.join(", ")}` : ""}\n`);
     if (report.decision === "BLOCK") process.exitCode = 3;
+    return;
+  }
+  if (argv[0] === "assess") {
+    const module = await import("./readiness.mjs");
+    const option = (name, fallback) => { const index = argv.indexOf(name); return index >= 0 ? argv[index + 1] : fallback; };
+    const out = resolve(option("--out", "."));
+    const report = await module.assessEvidenceFile(resolve(argv[1] ?? ""), out);
+    process.stdout.write(`ProofRun readiness ${report.approval}: ${report.totalSteps} steps\n${out}/readiness.json\n`);
+    if (report.approval !== "APPROVABLE") process.exitCode = 3;
     return;
   }
   if (argv[0] !== "baseline") throw new Error("Unknown command. Run `proofrun --help`.");
