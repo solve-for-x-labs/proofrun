@@ -1,5 +1,6 @@
-import { readFile, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { readFile, writeFile, realpath, stat } from "node:fs/promises";
+import { dirname, join, resolve, relative, isAbsolute } from "node:path";
+import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { verifyEvidence } from "./journey.mjs";
@@ -24,11 +25,24 @@ function check(id, requirement, pass, detail, severity = "BLOCK") {
   return { id, requirement, status: pass ? "PASS" : severity, detail };
 }
 
-function mediaCount(evidence) {
-  const steps = evidence.steps ?? [];
-  const withMedia = steps.filter((step) => step.screenshot || step.video).length;
-  const video = evidence.runtime?.video ?? evidence.visualEvidence?.video ?? null;
-  return { steps: steps.length, withMedia, video: Boolean(video) };
+// Integrity is not authenticity: these checks cannot prove who captured the bytes.
+export async function verifiedMedia(path, manifestPath, expectedHash) {
+  try {
+    if (typeof path !== "string" || !path || isAbsolute(path)) return null;
+    if (typeof expectedHash !== "string" || !/^[a-f0-9]{64}$/i.test(expectedHash)) return null;
+    const root = await realpath(dirname(resolve(manifestPath)));
+    const source = await realpath(resolve(root, path));
+    const rel = relative(root, source);
+    if (rel === ".." || rel.startsWith("../") || isAbsolute(rel)) return null;
+    if (!(await stat(source)).isFile()) return null;
+    const bytes = await readFile(source);
+    const png = bytes.subarray(0, 8).equals(Buffer.from("89504e470d0a1a0a", "hex"));
+    const jpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+    const webm = bytes.subarray(0, 4).equals(Buffer.from("1a45dfa3", "hex"));
+    if (!png && !jpeg && !webm) return null;
+    const hash = createHash("sha256").update(bytes).digest("hex");
+    return hash === expectedHash.toLowerCase() ? { bytes, hash } : null;
+  } catch { return null; }
 }
 
 export async function gateEvidence(evidencePath, repo, options = {}) {
@@ -40,7 +54,10 @@ export async function gateEvidence(evidencePath, repo, options = {}) {
   } = options;
 
   const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
-  const media = mediaCount(evidence);
+  const steps = Array.isArray(evidence.steps) ? evidence.steps : [];
+  const media = await Promise.all(steps.map(async (step) =>
+    await verifiedMedia(step.screenshot, evidencePath, step.screenshotSha256) ||
+    await verifiedMedia(step.video, evidencePath, step.videoSha256)));
   const networkFailures = (evidence.networkFailures ?? []).length;
   const consoleEvents = (evidence.console ?? []).length;
   const checks = [];
@@ -48,17 +65,18 @@ export async function gateEvidence(evidencePath, repo, options = {}) {
   checks.push(check(
     "run-status",
     "The recorded run must have passed its own assertions.",
-    evidence.status === "PASSED",
+    evidence.status === "PASSED" && steps.length > 0 && steps.every(s => s.status === "PASSED" && !s.error),
     `status=${evidence.status ?? "UNKNOWN"}`
   ));
 
   let freshness = null;
   if (requireFresh) {
-    freshness = await verifyEvidence(evidencePath, repo);
+    try { freshness = await verifyEvidence(evidencePath, repo); }
+    catch { freshness = { status: "UNVERIFIABLE" }; }
     checks.push(check(
       "freshness",
       "Evidence must still match the current Git state of the repository.",
-      freshness.status === "FRESH",
+      freshness.status === "FRESH" && /^[a-f0-9]{64}$/i.test(evidence.fingerprint?.uncommittedDiffSha256 ?? "") && typeof evidence.fingerprint?.workingTreeStatus === "string",
       `${freshness.status} · evidence head=${freshness.expected?.gitHead ?? "UNBOUND"} · current head=${freshness.current?.gitHead ?? "UNBOUND"}`
     ));
   } else {
@@ -76,17 +94,17 @@ export async function gateEvidence(evidencePath, repo, options = {}) {
   checks.push(check(
     "clean-tree",
     "A dirty working tree means the run is not reproducible from the commit alone.",
-    !evidence.fingerprint?.workingTreeStatus,
-    evidence.fingerprint?.workingTreeStatus ? "working tree had uncommitted changes during capture" : "clean at capture time",
-    "WARN"
+    evidence.fingerprint?.workingTreeStatus === "" && (!requireFresh || freshness?.current?.workingTreeStatus === ""),
+    "Clean capture/current state required: untracked file contents are not covered by the legacy fingerprint.",
+    requireFresh ? "BLOCK" : "WARN"
   ));
 
   if (requireMedia) {
     checks.push(check(
       "runtime-media",
-      "Every recorded step must carry real captured media, never a synthetic stand-in.",
-      media.steps > 0 && media.withMedia === media.steps,
-      `${media.withMedia}/${media.steps} steps have media · video=${media.video ? "yes" : "no"}`
+      "Every recorded step must have bundle-local media with matching SHA256 and a recognized media signature.",
+      steps.length > 0 && media.every(Boolean),
+      `${media.filter(Boolean).length}/${steps.length} steps have integrity-checked media`
     ));
   }
 
@@ -123,7 +141,9 @@ export async function gateEvidence(evidencePath, repo, options = {}) {
     freshness,
     limitations: [
       "ALLOW means the declared policy held for this evidence bundle. It is not a correctness claim about the product.",
-      "The gate reads recorded evidence. It does not re-execute the journey."
+      "The gate reads recorded evidence. It does not re-execute the journey.",
+      "Media signatures and hashes check integrity, not capture authenticity or full media decodability.",
+      "A local source SHA does not prove the identity of a remote deployed build."
     ]
   };
   await writeFile(join(dirname(resolve(evidencePath)), "gate.json"), json(report));

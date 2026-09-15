@@ -6,6 +6,9 @@ import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gateEvidence } from "../bin/gate.mjs";
+import { createHash } from "node:crypto";
+const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWZkAAAAASUVORK5CYII=", "base64");
+const pngHash = createHash("sha256").update(png).digest("hex");
 
 const exec = promisify(execFile);
 
@@ -29,7 +32,7 @@ function evidence(head, diffSha, overrides = {}) {
     status: "PASSED",
     fingerprint: { repo: ".", gitHead: head, uncommittedDiffSha256: diffSha, workingTreeStatus: "" },
     runtime: { adapter: "playwright", video: "video/run.webm" },
-    steps: [{ id: "open", status: "PASSED", screenshot: "screens/01.png" }],
+    steps: [{ id: "open", status: "PASSED", screenshot: "screens/01.png", screenshotSha256: pngHash }],
     console: [],
     networkFailures: [],
     ...overrides
@@ -49,6 +52,8 @@ test("gate allows fresh, passing, media-backed evidence", async () => {
   const root = await mkdtemp(join(tmpdir(), "proofrun-gate-ok-"));
   const { repo, head } = await repoAtHead(root);
   const path = join(root, "evidence.json");
+  await mkdir(join(root, "screens"));
+  await writeFile(join(root, "screens/01.png"), png);
   await writeFile(path, JSON.stringify(evidence(head, await currentDiffSha(repo, root))));
 
   const report = await gateEvidence(path, repo);
@@ -57,6 +62,38 @@ test("gate allows fresh, passing, media-backed evidence", async () => {
   assert.deepEqual(report.blocking, []);
   assert.equal(report.checks.find((c) => c.id === "freshness").status, "PASS");
   assert.equal(JSON.parse(await readFile(join(root, "gate.json"), "utf8")).decision, "ALLOW");
+});
+
+test("gate rejects missing, tampered, and escaping media plus contradictory run status", async () => {
+  const root = await mkdtemp(join(tmpdir(), "proofrun-gate-trust-"));
+  const { repo, head } = await repoAtHead(root);
+  const path = join(root, "evidence.json");
+  await writeFile(join(root, "image.png"), png);
+  for (const step of [
+    { screenshot: "missing.png", screenshotSha256: pngHash },
+    { screenshot: "image.png", screenshotSha256: "0".repeat(64) },
+    { screenshot: join(root, "image.png"), screenshotSha256: pngHash },
+    { screenshot: "../outside.png", screenshotSha256: pngHash }
+  ]) {
+    await writeFile(path, JSON.stringify(evidence(head, "any", { steps: [{ id: "open", status: "PASSED", ...step }] })));
+    assert.ok((await gateEvidence(path, repo, { requireFresh: false })).blocking.includes("runtime-media"));
+  }
+  await writeFile(path, JSON.stringify(evidence(head, "any", { steps: [{ id: "open", status: "FAILED" }] })));
+  assert.ok((await gateEvidence(path, repo, { requireFresh: false, requireMedia: false })).blocking.includes("run-status"));
+});
+
+test("gate blocks untracked content changes even when legacy freshness matches", async () => {
+  const root = await mkdtemp(join(tmpdir(), "proofrun-gate-untracked-"));
+  const { repo, head } = await repoAtHead(root);
+  await writeFile(join(repo, "untracked.txt"), "before");
+  const data = evidence(head, await currentDiffSha(repo, root));
+  data.fingerprint.workingTreeStatus = "?? untracked.txt";
+  await writeFile(join(repo, "untracked.txt"), "after");
+  const path = join(root, "evidence.json");
+  await writeFile(path, JSON.stringify(data));
+  const report = await gateEvidence(path, repo, { requireMedia: false });
+  assert.equal(report.decision, "BLOCK");
+  assert.ok(report.blocking.includes("clean-tree"));
 });
 
 test("gate blocks a passing run whose evidence no longer matches the repository", async () => {

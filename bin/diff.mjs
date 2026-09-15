@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile, copyFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { verifiedMedia } from "./gate.mjs";
 
 const exec = promisify(execFile);
 const json = (value) => JSON.stringify(value, null, 2) + "\n";
@@ -35,18 +36,20 @@ function stepsOf(manifest) {
   }));
 }
 
-async function copyMedia(relativePath, manifestPath, outDir, name) {
-  if (!relativePath) return null;
+async function copyMedia(relativePath, manifestPath, outDir, name, hash) {
+  const media = await verifiedMedia(relativePath, manifestPath, hash);
+  if (!media) return null;
   const source = resolve(dirname(manifestPath), relativePath);
   const target = join(outDir, "media", `${name}-${basename(source)}`);
   await mkdir(dirname(target), { recursive: true });
-  try { await copyFile(source, target); } catch { return null; }
+  try { await writeFile(target, media.bytes); } catch { return null; }
   return `media/${name}-${basename(source)}`;
 }
 
 function runVerdict(before, after) {
   if (!before) return "ADDED";
   if (!after) return "REMOVED";
+  if (!["PASSED", "FAILED"].includes(before.status) || !["PASSED", "FAILED"].includes(after.status)) return "UNVERIFIABLE";
   if (before.status === "PASSED" && after.status === "FAILED") return "REGRESSION";
   if (before.status === "FAILED" && after.status === "PASSED") return "FIX";
   if (after.status === "FAILED") return "STILL_FAILING";
@@ -58,9 +61,7 @@ function visualVerdict(before, after) {
   if (before.screenshotSha256 && after.screenshotSha256) {
     return before.screenshotSha256 === after.screenshotSha256 ? "VISUAL_IDENTICAL" : "VISUAL_CHANGED";
   }
-  if (before.domSha256 && after.domSha256) {
-    return before.domSha256 === after.domSha256 ? "DOM_IDENTICAL" : "DOM_CHANGED";
-  }
+  // DOM hashes have no retained DOM artifact to validate against.
   return "NO_HASH_BASELINE";
 }
 
@@ -68,12 +69,16 @@ function visualVerdict(before, after) {
 // Without that link the commit range is context, not a cause.
 function suspectsFor(step, changedFiles) {
   const referenced = (step?.sourceRefs ?? []).map((ref) => String(ref).split(":")[0]).filter(Boolean);
-  return changedFiles.filter((file) => referenced.some((ref) => file.endsWith(ref) || ref.endsWith(file)));
+  return changedFiles.filter((file) => referenced.some((ref) => file === ref.replace(/^\.\//, "")));
 }
 
 async function commitRange(repo, beforeHead, afterHead) {
   if (!repo) return { status: "UNAVAILABLE", reason: "no --repo supplied", commits: [], changedFiles: [] };
   if (!beforeHead || !afterHead) return { status: "UNAVAILABLE", reason: "one side has no bound Git HEAD", commits: [], changedFiles: [] };
+  for (const head of [beforeHead, afterHead]) {
+    if (!/^[a-f0-9]{7,40}$/i.test(head) || await git(repo, ["rev-parse", "--verify", `${head}^{commit}`]) === null)
+      return { status: "UNAVAILABLE", reason: "commit binding is not resolvable", commits: [], changedFiles: [] };
+  }
   if (beforeHead === afterHead) return { status: "SAME_COMMIT", reason: "both runs are bound to the same commit", commits: [], changedFiles: [] };
   const log = await git(repo, ["log", "--pretty=format:%H%x1f%an%x1f%ad%x1f%s", "--date=short", `${beforeHead}..${afterHead}`]);
   if (log === null) return { status: "UNAVAILABLE", reason: "commit range not resolvable in this repository", commits: [], changedFiles: [] };
@@ -93,6 +98,13 @@ export async function diffEvidence(beforePath, afterPath, outDir, repo) {
   const afterFp = fingerprintOf(after);
   const beforeSteps = stepsOf(before);
   const afterSteps = stepsOf(after);
+  for (const [list, path] of [[beforeSteps, beforePath], [afterSteps, afterPath]]) {
+    if (new Set(list.map(s => s.id)).size !== list.length) throw new Error("Duplicate step IDs make evidence comparison ambiguous");
+    for (const step of list) {
+      const media = await verifiedMedia(step.screenshot, path, step.screenshotSha256);
+      step.screenshotSha256 = media?.hash ?? null;
+    }
+  }
   const range = await commitRange(repo, beforeFp.gitHead, afterFp.gitHead);
 
   const ids = [...new Set([...beforeSteps.map((s) => s.id), ...afterSteps.map((s) => s.id)])];
@@ -107,8 +119,8 @@ export async function diffEvidence(beforePath, afterPath, outDir, repo) {
       action: a?.action ?? b?.action ?? "observed",
       verdict,
       visual: visualVerdict(b, a),
-      before: b ? { status: b.status, error: b.error, durationMs: b.durationMs, screenshot: await copyMedia(b.screenshot, beforePath, outDir, `before-${index + 1}`) } : null,
-      after: a ? { status: a.status, error: a.error, durationMs: a.durationMs, screenshot: await copyMedia(a.screenshot, afterPath, outDir, `after-${index + 1}`) } : null,
+      before: b ? { status: b.status, error: b.error, durationMs: b.durationMs, screenshot: await copyMedia(b.screenshot, beforePath, outDir, `before-${index + 1}`, b.screenshotSha256) } : null,
+      after: a ? { status: a.status, error: a.error, durationMs: a.durationMs, screenshot: await copyMedia(a.screenshot, afterPath, outDir, `after-${index + 1}`, a.screenshotSha256) } : null,
       pageTitle: a?.pageTitle ?? b?.pageTitle ?? null,
       sourceRefs: a?.sourceRefs ?? b?.sourceRefs ?? [],
       suspectCommitFiles: suspectsFor(a ?? b, range.changedFiles)
@@ -119,7 +131,10 @@ export async function diffEvidence(beforePath, afterPath, outDir, repo) {
   const fixes = steps.filter((s) => s.verdict === "FIX");
   const visualChanges = steps.filter((s) => s.visual === "VISUAL_CHANGED" || s.visual === "DOM_CHANGED");
   const unverifiable = steps.filter((s) => s.visual === "NO_HASH_BASELINE" || s.visual === "NOT_COMPARABLE");
-  const status = regressions.length ? "REGRESSION" : (visualChanges.length || fixes.length ? "CHANGED" : "STABLE");
+  const status = regressions.length ? "REGRESSION" :
+    (after.status === "FAILED" || steps.some(s => s.verdict === "STILL_FAILING") ? "STILL_FAILING" :
+    (!steps.length || unverifiable.length || steps.some(s => s.verdict === "UNVERIFIABLE") || !["PASSED", "FAILED"].includes(after.status) ? "UNVERIFIABLE" :
+    (visualChanges.length || fixes.length || steps.some(s => ["ADDED", "REMOVED"].includes(s.verdict)) ? "CHANGED" : "STABLE")));
 
   const report = {
     schemaVersion: "0.1",
@@ -138,7 +153,8 @@ export async function diffEvidence(beforePath, afterPath, outDir, repo) {
     },
     steps,
     limitations: [
-      "Visual comparison uses recorded screenshot/DOM hashes. An identical hash means the captured bytes match, not that the product is correct.",
+      "Visual comparison uses integrity-checked local media bytes; unbacked DOM hashes are not visual evidence. Hashes do not authenticate capture or prove correctness.",
+      "This is a historical comparison, not a freshness check against the current repository. A local source SHA does not prove a remote deployed build identity.",
       "Suspect commits are only shown where a changed file matches a step sourceRef. An empty list is not proof that no commit affected the step.",
       "A dirty working tree on either side means the compared runs are not reproducible from commits alone."
     ]

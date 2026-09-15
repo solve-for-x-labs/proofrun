@@ -6,6 +6,9 @@ import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { diffEvidence } from "../bin/diff.mjs";
+import { createHash } from "node:crypto";
+const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWZkAAAAASUVORK5CYII=", "base64");
+const hash = createHash("sha256").update(png).digest("hex");
 
 const exec = promisify(execFile);
 
@@ -17,7 +20,7 @@ function manifest(head, submitStatus, submitHash) {
     fingerprint: { gitHead: head, uncommittedDiffSha256: "clean", workingTreeStatus: "" },
     runtime: { adapter: "playwright" },
     steps: [
-      { id: "open", action: "goto", status: "PASSED", screenshot: "open.png", screenshotSha256: "same", sourceRefs: ["app/page.tsx:10"] },
+      { id: "open", action: "goto", status: "PASSED", screenshot: "open.png", screenshotSha256: hash, sourceRefs: ["app/page.tsx:10"] },
       { id: "submit", action: "click", status: submitStatus, error: submitStatus === "FAILED" ? "Expected text \"Message sent\"" : null, screenshot: "submit.png", screenshotSha256: submitHash, sourceRefs: ["app/form.tsx:22"] }
     ]
   };
@@ -42,10 +45,10 @@ async function repoWithTwoCommits(root) {
 test("diff marks a regression and binds it to the commits that touched the step source", async () => {
   const root = await mkdtemp(join(tmpdir(), "proofrun-diff-"));
   const { repo, first, second } = await repoWithTwoCommits(root);
-  await writeFile(join(root, "open.png"), "screen-a");
-  await writeFile(join(root, "submit.png"), "screen-b");
-  await writeFile(join(root, "before.json"), JSON.stringify(manifest(first, "PASSED", "pass-hash")));
-  await writeFile(join(root, "after.json"), JSON.stringify(manifest(second, "FAILED", "fail-hash")));
+  await writeFile(join(root, "open.png"), png);
+  await writeFile(join(root, "submit.png"), png);
+  await writeFile(join(root, "before.json"), JSON.stringify(manifest(first, "PASSED", hash)));
+  await writeFile(join(root, "after.json"), JSON.stringify(manifest(second, "FAILED", hash)));
 
   const out = join(root, "out");
   const report = await diffEvidence(join(root, "before.json"), join(root, "after.json"), out, repo);
@@ -59,7 +62,7 @@ test("diff marks a regression and binds it to the commits that touched the step 
   assert.equal(open.verdict, "STABLE");
   assert.equal(open.visual, "VISUAL_IDENTICAL");
   assert.equal(submit.verdict, "REGRESSION");
-  assert.equal(submit.visual, "VISUAL_CHANGED");
+  assert.equal(submit.visual, "VISUAL_IDENTICAL");
 
   assert.equal(report.commitRange.status, "RESOLVED");
   assert.equal(report.commitRange.commits.length, 1);
@@ -82,7 +85,7 @@ test("diff reports a fix and refuses to invent a commit range it cannot resolve"
 
   const report = await diffEvidence(join(root, "before.json"), join(root, "after.json"), join(root, "out"), root);
 
-  assert.equal(report.status, "CHANGED");
+  assert.equal(report.status, "UNVERIFIABLE");
   assert.equal(report.summary.fixes, 1);
   assert.equal(report.summary.regressions, 0);
   assert.equal(report.commitRange.status, "UNAVAILABLE");
@@ -99,6 +102,31 @@ test("diff labels an absent visual baseline instead of claiming the screens matc
   const report = await diffEvidence(join(root, "before.json"), join(root, "after.json"), join(root, "out"), root);
 
   assert.equal(report.summary.unverifiableVisuals, 2);
-  assert.equal(report.status, "STABLE");
+  assert.equal(report.status, "UNVERIFIABLE");
+  assert.equal(report.commitRange.status, "UNAVAILABLE");
   assert.match(await readFile(join(root, "out", "diff.html"), "utf8"), /NO_RUNTIME_MEDIA/);
+});
+
+test("diff rejects forged visual hashes and unbacked DOM hashes", async () => {
+  const root = await mkdtemp(join(tmpdir(), "proofrun-diff-forged-"));
+  const data = manifest("deadbee", "PASSED", "f".repeat(64));
+  await writeFile(join(root, "open.png"), png);
+  await writeFile(join(root, "submit.png"), png);
+  data.steps[0].screenshot = "missing.png";
+  data.steps.forEach(s => { s.domSha256 = "a".repeat(64); });
+  await writeFile(join(root, "before.json"), JSON.stringify(data));
+  await writeFile(join(root, "after.json"), JSON.stringify(data));
+  const report = await diffEvidence(join(root, "before.json"), join(root, "after.json"), join(root, "out"), root);
+  assert.equal(report.status, "UNVERIFIABLE");
+  assert.equal(report.summary.unverifiableVisuals, 2);
+  assert.ok(report.steps.every(s => !s.before.screenshot && !s.after.screenshot));
+});
+
+test("diff rejects duplicate IDs rather than silently discarding evidence", async () => {
+  const root = await mkdtemp(join(tmpdir(), "proofrun-diff-duplicates-"));
+  const data = manifest(null, "PASSED", null);
+  data.steps[1].id = data.steps[0].id;
+  const path = join(root, "evidence.json");
+  await writeFile(path, JSON.stringify(data));
+  await assert.rejects(diffEvidence(path, path, join(root, "out"), root), /Duplicate step IDs/);
 });

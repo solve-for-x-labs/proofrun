@@ -24,24 +24,32 @@ async function normalize(input, index, outDir) {
     action: step.action ?? step.event ?? "observed",
     screenshot: step.screenshot ?? step.image ?? null,
     video: step.video ?? null,
+    // Only explicit video-relative seconds are seekable; durations/wall clocks are not offsets.
+    videoTimeSeconds: typeof step.videoTimeSeconds === "number" && Number.isFinite(step.videoTimeSeconds) && step.videoTimeSeconds >= 0 ? step.videoTimeSeconds : null,
     error: step.error ?? null,
     sourceRefs: step.sourceRefs ?? []
   }));
-  const screenshotPaths = [];
+  const mediaIssues = [];
+  async function media(path, name) {
+    try { return await copyAsset(path, outDir, sourceDir, name); }
+    catch (error) {
+      if (!["ENOENT", "EISDIR"].includes(error.code)) throw error;
+      mediaIssues.push(`Missing media: ${path}`);
+      return null;
+    }
+  }
   for (const [i, step] of steps.entries()) {
-    if (step.screenshot) step.screenshot = await copyAsset(step.screenshot, outDir, sourceDir, `${index}-${i + 1}`);
-    if (step.video) step.video = await copyAsset(step.video, outDir, sourceDir, `${index}-${i + 1}`);
-    if (step.screenshot) screenshotPaths.push(step.screenshot);
+    if (step.screenshot) step.screenshot = await media(step.screenshot, `${index}-${i + 1}`);
+    if (step.video) step.video = await media(step.video, `${index}-${i + 1}`);
   }
   if (manifest.visualEvidence?.screenshots) {
     for (const [i, path] of manifest.visualEvidence.screenshots.entries()) {
       if (!steps[i]) steps.push({ id: `step-${i + 1}`, status: manifest.status ?? "UNKNOWN", title: `Step ${i + 1}`, action: "observed", screenshot: null, sourceRefs: [] });
-      if (path) steps[i].screenshot = await copyAsset(path, outDir, sourceDir, `${index}-${i + 1}`);
+      if (path) steps[i].screenshot = await media(path, `${index}-${i + 1}`);
     }
   }
-  const video = manifest.visualEvidence?.video ?? manifest.runtime?.video ?? manifest.steps?.find((step) => step.video)?.video;
-  const copiedVideo = video ? await copyAsset(video, outDir, sourceDir, `${index}-run`) : null;
-  if (copiedVideo && steps.length > 1 && !steps[1].video) steps[1].video = copiedVideo;
+  const video = manifest.visualEvidence?.video ?? manifest.runtime?.video;
+  const copiedVideo = video ? await media(video, `${index}-run`) : null;
   return {
     id: `${index}-${kind}`,
     kind,
@@ -51,7 +59,7 @@ async function normalize(input, index, outDir) {
     runtime: manifest.runtime ?? manifest.device ?? null,
     steps,
     video: copiedVideo,
-    limitations: manifest.limitations ?? []
+    limitations: [...(manifest.limitations ?? []), ...mediaIssues]
   };
 }
 
@@ -66,8 +74,68 @@ export async function mergeEvidence(inputs, outDir) {
 }
 
 function render(bundle) {
-  const data = JSON.stringify(bundle).replaceAll("<", "\\u003c");
-  return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ProofRun · Cross-surface evidence</title><style>
-:root{color-scheme:dark;--bg:#07111f;--panel:#10243d;--line:#315476;--text:#f4f8ff;--muted:#a7bad1;--ok:#70e2ab;--bad:#ff9b83;--blue:#78c9ff}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 10% 0,#24577f,#07111f 48%);color:var(--text);font:16px/1.45 system-ui,sans-serif}.shell{max-width:1600px;margin:auto;padding:24px}.top{display:flex;justify-content:space-between;gap:20px;align-items:start}.eyebrow{color:var(--blue);font-size:12px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}.top h1{font-size:clamp(26px,3.5vw,44px);margin:7px 0}.muted{color:var(--muted)}.badge{padding:8px 13px;border-radius:999px;border:1px solid #4d9c7b;color:#a3f2c9;background:#123c30;font-weight:800;white-space:nowrap}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0}.tabs button,.step{border:1px solid var(--line);background:#142c48;color:var(--text);border-radius:10px;padding:10px 13px;cursor:pointer;font-weight:750}.tabs button.active,.step.active{background:#23648f;border-color:var(--blue)}.layout{display:grid;grid-template-columns:230px minmax(0,1fr) 310px;gap:14px}.panel{background:linear-gradient(145deg,#142d4a,#0e1c31);border:1px solid var(--line);border-radius:17px;padding:16px}.step{display:block;width:100%;text-align:left;margin:8px 0}.step small{display:block;color:var(--muted);margin-top:4px}.stage{display:flex;align-items:center;justify-content:center;min-height:520px;background:#03070c;border-radius:12px;overflow:hidden}.stage img{display:block;max-width:100%;max-height:720px;width:auto;height:auto;object-fit:contain}.stage video{display:block;width:100%;max-height:720px;background:#000}.kv{padding:10px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.kv b{display:block;margin-top:3px}.ok{color:var(--ok)}.bad{color:var(--bad)}.notice{margin-top:14px;padding:11px;border-left:4px solid #ffc66e;background:#2a2113;color:#ffe4b6;border-radius:8px}@media(max-width:1000px){.top,.layout{display:block}.panel{margin-bottom:12px}.stage{min-height:380px}}
-</style></head><body><main class="shell"><header class="top"><div><div class="eyebrow">ProofRun · decision surface</div><h1>실제 화면과 실행 증거를 한 곳에서 검토</h1><p class="muted">자동화 도구의 주장 대신, 웹·앱·기기 실행에서 수집한 이미지와 영상을 surface별로 분리 재생합니다.</p></div><div class="badge">CROSS-SURFACE · NO SYNTHETIC MEDIA</div></header><nav class="tabs" id="surfaces"></nav><section class="layout"><section class="panel" id="steps"></section><section class="panel"><div class="stage" id="stage"></div><h2 id="title"></h2><p id="meta" class="muted"></p></section><aside class="panel" id="details"></aside></section></main><script>const B=${data};let si=0,pi=0;const $=s=>document.querySelector(s);function renderTabs(){const el=$('#surfaces');el.innerHTML=B.surfaces.map((s,i)=>'<button class="'+(i===si?'active':'')+'" onclick="selectSurface('+i+')">'+esc(s.name)+'</button>').join('')}function selectSurface(i){si=i;pi=0;renderTabs();renderSteps();show()}function renderSteps(){const s=B.surfaces[si];$('#steps').innerHTML='<div class="eyebrow">'+esc(s.kind)+'</div><h2>'+esc(s.name)+'</h2>'+s.steps.map((x,i)=>'<button class="step '+(i===pi?'active':'')+' '+(x.status==='FAILED'?'bad':'')+'" onclick="selectStep('+i+')"><b>'+(i+1)+'. '+esc(x.title)+'</b><small>'+esc(x.status)+' · '+esc(x.action)+'</small></button>').join('')}function selectStep(i){pi=i;renderSteps();show()}function show(){const s=B.surfaces[si],p=s.steps[pi]||{};const stage=$('#stage');stage.innerHTML='';if(p.screenshot){const img=document.createElement('img');img.src=p.screenshot;img.alt=s.name+' '+p.title;stage.appendChild(img)}else if(p.video||s.video){const v=document.createElement('video');v.controls=true;v.autoplay=false;v.src=p.video||s.video;stage.appendChild(v)}else stage.innerHTML='<div class="notice">NO_RUNTIME_MEDIA · 이 단계에는 실제 이미지/영상이 없습니다.</div>';$('#title').textContent=p.title||s.name;$('#meta').innerHTML='<b class="'+(p.status==='FAILED'?'bad':'ok')+'">'+esc(p.status||'UNKNOWN')+'</b> · '+esc(p.action||'observed')+(p.error?'<br><span class="bad">'+esc(p.error)+'</span>':'')+(p.sourceRefs?.length?'<br><span class="muted">source: '+esc(p.sourceRefs.join(', '))+'</span>':'');$('#details').innerHTML='<h2>판정 자료</h2><div class="kv"><span class="muted">Surface</span><b>'+esc(s.kind)+'</b></div><div class="kv"><span class="muted">Status</span><b class="'+(s.status==='PASSED'?'ok':'bad')+'">'+esc(s.status)+'</b></div><div class="kv"><span class="muted">Freshness</span><b>'+esc(s.source?.gitHead?'Git-bound':'UNBOUND')+'</b></div><div class="kv"><span class="muted">Runtime</span><b>'+esc(s.runtime?.adapter||s.runtime?.platform||'not declared')+'</b></div><div class="kv"><span class="muted">Steps</span><b>'+s.steps.length+'</b></div><div class="notice">실제 미디어가 없는 상태를 PASS로 꾸미지 않습니다.</div>'}function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}renderTabs();renderSteps();show();</script></body></html>`;
+ const data=JSON.stringify(bundle).replaceAll("<","\\u003c");
+ return `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ProofRun · 미디어 리뷰</title><style>
+:root{color-scheme:dark;font:16px/1.5 system-ui;background:#07111f;color:#f4f8ff}*{box-sizing:border-box}body{margin:0}main{max-width:1800px;margin:auto;padding:24px}h1{font-size:clamp(1.5rem,3vw,2.5rem)}h2{font-size:1.2rem}button,select,a{font:inherit}button,select,.original{min-height:44px;padding:8px 12px;border:1px solid #7797b8;border-radius:8px;background:#142c48;color:inherit}button{cursor:pointer}button:disabled{opacity:.55;cursor:default}:focus-visible{outline:3px solid #ffd078;outline-offset:3px}a{color:#9edaff}.skip{position:absolute;top:-100px}.skip:focus{top:8px;background:#07111f;padding:12px;z-index:2}.muted{color:#b5c7dc}.tabs,.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:16px 0}[aria-pressed=true],[aria-current=step]{background:#23648f;border-color:#b3e2ff}.layout{display:grid;grid-template-columns:240px minmax(0,1fr);gap:20px}.panel{min-width:0;background:#10243d;border:1px solid #42617e;border-radius:12px;padding:16px}ol{padding-left:24px}.step{width:100%;text-align:left;margin:4px 0;overflow-wrap:anywhere}.step small{display:block}.stage{display:flex;justify-content:center;align-items:center;min-height:55vh;background:#03070c;border-radius:8px}.stage img,.stage video{display:block;width:100%;height:auto;max-height:78vh;object-fit:contain}.notice{padding:12px;border-left:4px solid #ffc66e;background:#2a2113;color:#ffe4b6;overflow-wrap:anywhere}#details{margin-top:20px;overflow-wrap:anywhere}#title,#meta{overflow-wrap:anywhere}[hidden]{display:none!important}@media(max-width:800px){main{padding:12px}.layout{grid-template-columns:1fr}.stage{min-height:30vh}#steps ol{max-height:220px;overflow:auto}.panel{padding:12px}}
+</style></head><body><a class="skip" href="#review">미디어로 건너뛰기</a><main><header><p class="muted">ProofRun · 관리자 미디어 리뷰</p><h1>실제 화면과 실행 증거</h1><p>첨부된 화면·영상을 우선 검토하세요. 실행 판정은 미디어 존재나 진위를 보증하지 않습니다.</p></header><nav id="surfaces" class="tabs" aria-label="실행 surface"></nav><div class="layout"><nav id="steps" class="panel" aria-label="실행 단계"></nav><section id="review" class="panel" tabindex="-1" aria-labelledby="title"><h2 id="title"></h2><p id="meta" class="muted"></p><div class="toolbar"><button id="imageMode">단계 화면</button><button id="videoMode">영상</button><a id="original" class="original" target="_blank" rel="noopener">원본 열기</a></div><div class="stage" id="stage"></div><div class="toolbar" id="videoTools" hidden><label for="rate">재생 속도</label><select id="rate"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select><button id="seek" hidden>단계 시점으로 이동</button></div><p id="mediaNote" class="muted"></p><p id="announcement" role="status"></p><aside id="details"></aside></section></div></main><script>
+const B=${data};let si=0,pi=0,mode='image',rate=1;
+const $=s=>document.querySelector(s);
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function navigation(){
+ $('#surfaces').innerHTML=B.surfaces.map((s,i)=>'<button aria-pressed="'+(i===si)+'" data-index="'+i+'">'+esc(s.name)+'</button>').join('');
+ const s=B.surfaces[si];
+ $('#steps').innerHTML='<h2>실행 단계</h2><p class="muted">방향키 · Home/End로 이동, Enter로 선택</p><ol>'+(s?.steps||[]).map((p,i)=>'<li><button class="step" data-index="'+i+'" '+(i===pi?'aria-current="step"':'')+'>'+esc(p.title)+'<small>'+esc(p.status)+' · '+esc(p.action)+'</small></button></li>').join('')+'</ol>';
+}
+function select(surface,index){
+ const group=document.activeElement?.closest('#surfaces,#steps')?.id;
+ si=surface;pi=index;navigation();show();
+ if(group)document.querySelector('#'+group+' button[data-index="'+(group==='surfaces'?si:pi)+'"]')?.focus();
+}
+for(const id of ['surfaces','steps']){
+ const container=$('#'+id);
+ container.addEventListener('click',e=>{const button=e.target.closest('button[data-index]');if(!button)return;const i=Number(button.dataset.index);if(id==='surfaces'){mode='image';select(i,0)}else select(si,i)});
+ container.addEventListener('keydown',e=>{
+  const buttons=[...container.querySelectorAll('button')],i=buttons.indexOf(e.target);if(i<0)return;
+  let next;if(['ArrowDown','ArrowRight'].includes(e.key))next=(i+1)%buttons.length;
+  if(['ArrowUp','ArrowLeft'].includes(e.key))next=(i-1+buttons.length)%buttons.length;
+  if(e.key==='Home')next=0;if(e.key==='End')next=buttons.length-1;
+  if(next!==undefined){e.preventDefault();buttons[next].focus()}
+ });
+}
+function show(){
+ const s=B.surfaces[si],p=s?.steps[pi]||{};
+ $('#stage').querySelector('video')?.pause();$('#stage').replaceChildren();$('#announcement').textContent='';
+ $('#title').textContent=p.title||s?.name||'증거 없음';
+ $('#meta').textContent=(p.status||s?.status||'UNKNOWN')+' · '+(p.action||'')+(p.error?' · '+p.error:'')+(p.sourceRefs?.length?' · source: '+p.sourceRefs.join(', '):'');
+ const video=p.video||s?.video;let selected=mode;
+ if(selected==='image'&&!p.screenshot&&video)selected='video';if(selected==='video'&&!video)selected='image';
+ $('#imageMode').disabled=!p.screenshot;$('#videoMode').disabled=!video;
+ $('#imageMode').setAttribute('aria-pressed',String(selected==='image'&&!!p.screenshot));$('#videoMode').setAttribute('aria-pressed',String(selected==='video'&&!!video));
+ const path=selected==='video'?video:p.screenshot;
+ $('#original').hidden=!path;if(path)$('#original').href=path;else $('#original').removeAttribute('href');
+ $('#videoTools').hidden=selected!=='video'||!video;$('#seek').hidden=true;$('#mediaNote').textContent='';
+ if(path){
+  const media=document.createElement(selected==='video'?'video':'img');
+  media.addEventListener('error',()=>{if(!media.isConnected)return;const notice=document.createElement('p');notice.className='notice';notice.textContent='MEDIA_UNAVAILABLE · 파일을 불러오거나 재생할 수 없습니다. 원본과 형식을 확인하세요.';media.replaceWith(notice);$('#videoTools').hidden=true;$('#announcement').textContent='미디어 로드 실패'},{once:true});
+  if(selected==='image')media.alt=(s?.name||'')+' · '+(p.title||'단계 화면');
+  else{
+   media.controls=true;media.preload='metadata';media.playsInline=true;media.playbackRate=rate;
+   media.setAttribute('aria-label',(p.video?'단계 영상':'실행 전체 영상')+' · '+s.name);
+   $('#mediaNote').textContent=(p.video?'단계 영상. ':'실행 전체 영상 — 이 단계와의 시간 연결은 별도입니다. ')+'자막·대본은 제공되지 않았습니다.';
+   const t=p.videoTimeSeconds;
+   if(typeof t==='number'&&Number.isFinite(t)&&t>=0){
+    $('#seek').hidden=false;$('#seek').disabled=true;$('#seek').textContent='단계 시점 '+t+'초로 이동';
+    const ready=()=>{if(!media.isConnected)return;$('#seek').disabled=!(Number.isFinite(media.duration)&&t<=media.duration);if($('#seek').disabled)$('#announcement').textContent='기록된 시점이 영상 범위 밖이므로 이동할 수 없습니다.'};
+    media.addEventListener('loadedmetadata',ready);media.addEventListener('durationchange',ready);
+    $('#seek').onclick=()=>{if(!$('#seek').disabled){media.currentTime=t;$('#announcement').textContent='기록된 '+t+'초로 이동했습니다.'}};
+   }else $('#mediaNote').textContent+=' 단계 타임스탬프 없음 — 자동 연결/탐색을 제공하지 않습니다.';
+  }
+  media.src=path;$('#stage').appendChild(media);
+ }else $('#stage').innerHTML='<p class="notice">NO_RUNTIME_MEDIA · 이 단계에는 실제 이미지/영상이 없습니다.</p>';
+ $('#details').innerHTML='<h2>판정 자료 · 제한 사항</h2><p>Surface: '+esc(s?.kind||'없음')+' · Status: '+esc(s?.status||'UNKNOWN')+'</p><p>Source: '+esc(s?.source?.gitHead||'UNBOUND')+' · Runtime: '+esc(s?.runtime?.adapter||s?.runtime?.platform||'not declared')+'</p><ul>'+(s?.limitations||[]).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
+}
+$('#imageMode').onclick=()=>{mode='image';show()};$('#videoMode').onclick=()=>{mode='video';show()};
+$('#rate').onchange=e=>{rate=Number(e.target.value);const v=$('#stage video');if(v)v.playbackRate=rate};
+navigation();show();
+</script></body></html>`;
 }

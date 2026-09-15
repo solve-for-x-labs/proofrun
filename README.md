@@ -20,11 +20,16 @@ real Next.js repository
 ## Status
 
 Early public prototype: [github.com/solve-for-x-labs/proofrun](https://github.com/solve-for-x-labs/proofrun).
-The core is dependency-light, read-only, and uses explicit heuristic labels.
+The baseline analyzer is dependency-free and reads source without executing the target project.
+Runtime journeys use optional Playwright, drive a real browser, and can make network requests and
+change application state. Commands write their reports to disk; none performs a Git merge.
 
 ## Run locally
 
+From a source checkout (Node 22 or newer):
+
 ```bash
+node bin/proofrun.mjs --version
 npm test
 npm run build:baseline
 open artifacts/baseline/index.html
@@ -36,7 +41,7 @@ The baseline is only a source map. It is not runtime proof. For runtime proof, d
 with real actions and assertions, then run it with the optional Playwright browser adapter:
 
 ```bash
-npm install -D playwright
+npm install --include=optional
 npx playwright install chromium
 node examples/journey-app/server.mjs
 # in another terminal
@@ -99,35 +104,54 @@ pull-request workflow in [examples/ci/evidence-gate.yml](examples/ci/evidence-ga
 
 ## Where this sits next to execution tools
 
-ProofRun does not drive devices and does not try to. Tools like ARTEMIS and Maestro are strong
-execution layers — real device control, accessibility-aware interaction, smart waits, traces — and
-ProofRun consumes their output through a neutral manifest instead of reimplementing it.
+ProofRun includes a Playwright/Chromium browser runner. It does not include a native mobile
+device driver: mobile results must be converted to its neutral evidence manifest by an adapter.
+This is not a claim that ARTEMIS or Maestro lack review, verification, or CI features.
 
-| | Execution layer | ProofRun |
-|---|---|---|
-| Drives devices and browsers | yes | no, by design |
-| Reports whether this run passed | yes | yes |
-| Binds each step to commit, diff, and source line | no | yes |
-| Marks a run stale when the code moves under it | no | yes |
-| Same-journey before/after verdict per step | no | yes |
-| Web, iOS, and Android in one reviewer surface | per tool | yes |
-| Refuses to show a synthetic or stale screen as proof | n/a | `NO_RUNTIME_MEDIA` |
-| Emits a merge decision with exit codes | no | `ALLOW` / `BLOCK` |
+| Tool | Documented scope |
+|---|---|
+| [Google ARTEMIS](https://github.com/google/artemis#readme) | Natural-language Android automation, accessibility/visual grounding, CLI/MCP/SDK access, execution replay, and configurable verification. Its README lists iOS expansion as roadmap work. |
+| [Archived maestro-mcp](https://github.com/mobile-dev-inc/maestro-mcp#readme) | The standalone Python project is no longer maintained; its README points to the implementation in the main Maestro repository. |
+| [Current Maestro](https://github.com/mobile-dev-inc/maestro#readme) | Android, iOS, and web UI testing, YAML flows, assertions, automatic waiting, and CI-oriented tests. MCP ships in the CLI as `maestro mcp`, with live device interaction and a viewer. |
+| ProofRun (this checkout) | Browser journey capture, Git-state freshness checks, comparison of recorded steps, policy gate exit codes, and a combined viewer for compatible web/mobile manifests. |
 
-The claim is narrow: execution tools answer *did it run*, ProofRun answers *can a human merge it*.
+These are primary-source descriptions, not an exhaustive feature matrix or a head-to-head test.
+No absence of a competitor feature is inferred from documentation silence. A bundled, tested
+ARTEMIS/Maestro exporter is not claimed. ProofRun source references come from the supplied journey
+or adapter; automatic source-line attribution for every runtime step is not established.
+`verify` checks recorded Git state, not product correctness or the authenticity of imported media.
+`gate` provides a policy result for CI and human review; it does not itself approve or merge code.
 See [docs/CROSS-SURFACE-EVIDENCE.md](docs/CROSS-SURFACE-EVIDENCE.md) for the adapter contract.
 
 ## Install the CLI
 
-After the tagged GitHub release is published:
+The source checkout's `package.json` and CLI report **0.6.0**. That local version does not establish
+that a matching GitHub Release asset or npm registry package has been published. Do not substitute
+`0.6.0` into an older release download URL.
+
+To inspect and install a locally built package, from the checkout:
 
 ```bash
-npm install -g https://github.com/solve-for-x-labs/proofrun/releases/download/v0.3.0/proofrun-0.3.0.tgz
+npm pack --dry-run
+# Review the included files before creating or sharing a package.
+npm pack
+npm install -g ./proofrun-0.6.0.tgz
+proofrun --version
+proofrun --help
 proofrun baseline ./your-repository --out ./proofrun-output
 ```
 
-The CLI is dependency-free and requires Node 22 or newer. Use `--format json` in CI, `--format
-html` for a reviewer artifact, and `--include`/`--exclude` to scope large repositories.
+The `proofrun ...` examples require an installed CLI matching this checkout. Without installation,
+replace `proofrun` with `node bin/proofrun.mjs` from the checkout. An older installed version may
+not support the commands below; check `--version` and `--help`. Fixture/schema paths in examples
+are relative to the checkout, not files created in your current directory by global installation.
+
+Node 22 or newer is required. `baseline` needs no third-party runtime dependency; `journey` needs
+Playwright (declared as an optional dependency) and its matching Chromium installation. The local
+journey setup above installs both. Installing Playwright in an unrelated app directory does not
+necessarily make it available to a globally installed ProofRun.
+For `baseline`, use `--format json` in CI, `--format html` for a reviewer artifact, and
+`--include`/`--exclude` to scope large repositories.
 
 ## What makes it general-purpose
 
@@ -135,7 +159,8 @@ html` for a reviewer artifact, and `--include`/`--exclude` to scope large reposi
   Ruby source trees without assuming one framework.
 - Keeps every displayed node linked to a relative source path and line.
 - Produces a stable JSON schema that future AST/runtime adapters can implement.
-- Does not execute the target project, access credentials, call the network, or modify Git.
+- The baseline analyzer does not execute the target project or call the network. The optional
+  journey runner executes browser actions against the configured app; use an appropriate test environment.
 - Keeps human approval, forecast, and irreversible-effect policy separate from the analyzer.
 
 See [docs/ADAPTERS.md](docs/ADAPTERS.md) for the extension contract and [CONTRIBUTING.md](CONTRIBUTING.md)
@@ -165,10 +190,13 @@ fingerprint를 보조 판정면으로 제공합니다. `FRESH`가 아닌 증거�
 |---|---|---|
 | `baseline` | source-linked map of a repository | 0 / 1 |
 | `journey` | real browser run: screens, video, assertions, Git fingerprint | 0 / 1 |
-| `verify` | freshness of a recorded bundle | 0 / 2 |
+| `verify` | freshness of a recorded bundle | 0 / 1 / 2 |
 | `merge` | one admin viewer across web and mobile surfaces | 0 / 1 |
-| `diff` | before/after verdict per step with commit range | 0 / 3 |
-| `gate` | `ALLOW` / `BLOCK` merge decision | 0 / 3 |
+| `diff` | before/after verdict per step with commit range | 0 / 1 / 3 |
+| `gate` | `ALLOW` / `BLOCK` policy decision (no merge performed) | 0 / 1 / 3 |
+
+Exit `1` means an execution/input error. `verify` returns `2` for stale evidence; `gate` returns
+`3` when its policy blocks, including a freshness failure.
 
 ## Design rules
 
